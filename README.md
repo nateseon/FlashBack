@@ -66,9 +66,9 @@ The core innovation lies in the **Voice-AI Pipeline**, designed for natural, emo
 
 ```mermaid
 graph LR
-    User[User Voice] -->|Input| STT[Speech-to-Text]
-    STT -->|Text| Brain[Gemini (Vertex AI)]
-    Brain -->|Function Calling| DB[(Firestore Memory)]
+    User["User Voice"] -->|Input| STT["Speech-to-Text"]
+    STT -->|Text| Brain["Gemini (Vertex AI)"]
+    Brain -->|Function Calling| DB[("Firestore Memory")]
     DB -->|Context| Brain
-    Brain -->|Response| TTS[ElevenLabs Turbo v2]
+    Brain -->|Response| TTS["ElevenLabs Turbo v2"]
     TTS -->|Audio Stream| User
