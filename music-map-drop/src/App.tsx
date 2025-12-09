@@ -1,6 +1,6 @@
 import './index.css'
 import { MapComponent } from './components/Map';
-import { MusicSearch } from './components/MusicSearch';
+import { DropCreator } from './components/DropCreator';
 
 function App() {
   return (
@@ -9,7 +9,7 @@ function App() {
       <MapComponent />
       
       {/* 2. music search (floating above the map) */}
-      <MusicSearch />
+      <DropCreator />
     </div>
   )
 }

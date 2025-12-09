@@ -1,7 +1,11 @@
 import { APIProvider, Map } from '@vis.gl/react-google-maps';
 import type { MapCameraChangedEvent } from '@vis.gl/react-google-maps';
 
+console.log('VITE key:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+// Debug: surface the key detection in devtools (remove for production)
+console.log("VITE_GOOGLE_MAPS_API_KEY =", API_KEY);
 
 // Debug: Check if API key is loaded (remove in production)
 if (!API_KEY || API_KEY === 'your_api_key_here') {
