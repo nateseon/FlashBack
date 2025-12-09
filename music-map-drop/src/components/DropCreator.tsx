@@ -179,6 +179,15 @@ export const DropCreator = () => {
             <option value="calm">☕️ Calm</option>
             <option value="excited">🔥 Excited</option>
             <option value="romantic">💕 Romantic</option>
+            <option value="angry">😠 Angry</option>
+            <option value="melancholy">🌧️ Melancholy</option>
+            <option value="nostalgic">📷 Nostalgic</option>
+            <option value="confident">💪 Confident</option>
+            <option value="dreamy">✨ Dreamy</option>
+            <option value="lonely">🌙 Lonely</option>
+            <option value="energetic">⚡ Energetic</option>
+            <option value="peaceful">🕊️ Peaceful</option>
+            <option value="hopeful">🌈 Hopeful</option>
           </select>
 
           {/* Save Button */}
