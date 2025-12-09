@@ -136,7 +136,7 @@ export const DropCreator = () => {
                 >
                   <img src={song.artworkUrl100} alt={song.trackName} style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />
                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.trackName}</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.trackName}</div>
                     <div style={{ fontSize: '13px', color: '#666' }}>{song.artistName}</div>
                   </div>
                 </div>
@@ -151,7 +151,7 @@ export const DropCreator = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f5f5f5', padding: '10px', borderRadius: '8px' }}>
             <img src={selectedSong.artworkUrl100} alt="cover" style={{ width: '40px', height: '40px', borderRadius: '4px' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{selectedSong.trackName}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{selectedSong.trackName}</div>
               <div style={{ fontSize: '12px', color: '#666' }}>{selectedSong.artistName}</div>
             </div>
             <button onClick={() => setSelectedSong(null)} style={{ background: 'none', border: 'none', fontSize: '12px', color: '#999', cursor: 'pointer' }}>✕ Cancel</button>
