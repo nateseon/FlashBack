@@ -1,15 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapComponent } from '../components/Map';
 import { MyDropsList } from '../components/MyDropsList';
 import { AIAnswerSheet } from '../components/AIAnswerSheet';
 import { MicButton } from '../components/MicButton';
-import { useDrops } from '../state/drops';
+import { getDropsByLocation } from '../api/drops';
+import type { MusicDrop } from '../types/music';
 
 export const HomePage = () => {
   const navigate = useNavigate();
-  const { drops } = useDrops();
+  const [drops, setDrops] = useState<MusicDrop[]>([]);
   const [isAIAnswerOpen, setIsAIAnswerOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // 현재 위치 기반으로 드롭 조회
+    const loadDrops = async () => {
+      try {
+        // TODO: 실제 위치 가져오기
+        const defaultLat = 47.6205; // Seattle
+        const defaultLng = -122.3493;
+        
+        const fetchedDrops = await getDropsByLocation(defaultLat, defaultLng);
+        setDrops(fetchedDrops);
+      } catch (error) {
+        console.error('Failed to load drops:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDrops();
+  }, []);
 
   const handleMicClick = () => {
     setIsAIAnswerOpen(true);

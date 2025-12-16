@@ -3,22 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { MusicSearch } from '../components/MusicSearch';
 import { DropModal } from '../components/DropModal';
 import type { ItunesSong, MusicDrop } from '../types/music';
-import { useDrops } from '../state/drops';
+import { createDrop } from '../api/drops';
 
 export const DropPage = () => {
   const navigate = useNavigate();
-  const { addDrop } = useDrops();
   const [selectedSong, setSelectedSong] = useState<ItunesSong | null>(null);
   const [isDropModalOpen, setIsDropModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSongSelect = (song: ItunesSong) => {
     setSelectedSong(song);
     setIsDropModalOpen(true);
   };
 
-  const handleDrop = (newDrop: MusicDrop) => {
-    addDrop(newDrop);
-    navigate('/');
+  const handleDrop = async (newDrop: MusicDrop) => {
+    setIsSubmitting(true);
+    try {
+      // 백엔드 API 호출 (현재는 임시로 로컬 처리)
+      await createDrop({
+        song: newDrop.song,
+        text: newDrop.text,
+        tags: newDrop.tags,
+        location: newDrop.location,
+      });
+      // 성공 시 홈으로 이동
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to create drop:', error);
+      // TODO: 에러 처리 (토스트 메시지 등)
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

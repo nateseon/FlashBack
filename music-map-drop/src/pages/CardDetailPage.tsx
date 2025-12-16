@@ -1,12 +1,39 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDrops } from '../state/drops';
+import { getDropById } from '../api/drops';
+import type { MusicDrop } from '../types/music';
 
 export const CardDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getDropById } = useDrops();
+  const [drop, setDrop] = useState<MusicDrop | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const drop = id ? getDropById(id) : undefined;
+  useEffect(() => {
+    const loadDrop = async () => {
+      if (!id) return;
+      
+      try {
+        const fetchedDrop = await getDropById(id);
+        setDrop(fetchedDrop);
+      } catch (error) {
+        console.error('Failed to load drop:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDrop();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full bg-gray-900 flex items-center justify-center p-6 text-center text-gray-300">
+        Loading...
+      </div>
+    );
+  }
+
   if (!drop) {
     return (
       <div className="w-full h-full bg-gray-900 flex items-center justify-center p-6 text-center text-gray-300">
@@ -18,7 +45,6 @@ export const CardDetailPage = () => {
   return (
     <div className="w-full h-full bg-gray-900 overflow-y-auto">
       <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* 헤더 */}
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => navigate(-1)}
@@ -31,7 +57,6 @@ export const CardDetailPage = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-white">Drop Details</h1>
         </div>
 
-        {/* 앨범 아트 */}
         <div className="flex justify-center">
           <img
             src={(drop.song.artworkUrl100 || '/vite.svg').replace('100x100', '600x600')}
@@ -44,14 +69,12 @@ export const CardDetailPage = () => {
           />
         </div>
 
-        {/* 곡 정보 */}
         <div className="text-center space-y-2">
           <h2 className="text-2xl sm:text-3xl font-bold text-white">{drop.song.trackName}</h2>
           <p className="text-lg sm:text-xl text-gray-400">{drop.song.artistName}</p>
           <p className="text-xs sm:text-sm text-gray-500">{drop.song.collectionName}</p>
         </div>
 
-        {/* 태그 */}
         <div className="flex flex-wrap gap-2 justify-center">
           {drop.tags.map((tag) => (
             <span
@@ -63,13 +86,11 @@ export const CardDetailPage = () => {
           ))}
         </div>
 
-        {/* 텍스트 */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-3">Memory</h3>
           <p className="text-gray-300 text-sm sm:text-base leading-relaxed">{drop.text}</p>
         </div>
 
-        {/* 위치 정보 */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-3">Location</h3>
           <p className="text-gray-400 text-xs sm:text-sm">
@@ -77,7 +98,6 @@ export const CardDetailPage = () => {
           </p>
         </div>
 
-        {/* 날짜 */}
         <div className="text-center text-gray-500 text-sm">
           {new Date(drop.createdAt).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -89,4 +109,3 @@ export const CardDetailPage = () => {
     </div>
   );
 };
-
