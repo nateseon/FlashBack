@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { searchMusic } from '../api/itunes';
 import type { ItunesSong } from '../types/music';
 
-export const MusicSearch = () => {
+interface MusicSearchProps {
+  onSongSelect?: (song: ItunesSong) => void;
+}
+
+export const MusicSearch = ({ onSongSelect }: MusicSearchProps) => {
   const [term, setTerm] = useState('');
   const [songs, setSongs] = useState<ItunesSong[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,47 +21,25 @@ export const MusicSearch = () => {
     setIsLoading(false);
   };
 
+  const handleSongClick = (song: ItunesSong) => {
+    onSongSelect?.(song);
+  };
+
   return (
-    <div style={{
-      position: 'absolute',
-      top: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: '90%',
-      maxWidth: '400px',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)', // slightly transparent
-      padding: '16px',
-      borderRadius: '16px',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      zIndex: 1000 // above the map
-    }}>
+    <div className="absolute top-2 sm:top-4 left-1/2 transform -translate-x-1/2 w-[95%] sm:w-[90%] max-w-md bg-gray-800/95 backdrop-blur-sm p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xl border border-gray-700 z-30">
       {/* search form */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px' }}>
+      <form onSubmit={handleSearch} className="flex gap-2">
         <input
           type="text"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           placeholder="Search for a song or artist 🎵"
-          style={{
-            flex: 1,
-            padding: '12px',
-            borderRadius: '8px',
-            border: '1px solid #ddd',
-            fontSize: '16px'
-          }}
+          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 text-white text-sm sm:text-base rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-400"
         />
         <button 
           type="submit" 
           disabled={isLoading}
-          style={{
-            padding: '0 20px',
-            backgroundColor: '#FF2D55', // iTunes pink red
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
+          className="px-4 sm:px-6 py-2 sm:py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm sm:text-base font-semibold rounded-lg transition-colors"
         >
           {isLoading ? '...' : 'Search'}
         </button>
@@ -65,39 +47,37 @@ export const MusicSearch = () => {
 
       {/* result list */}
       {songs.length > 0 && (
-        <div style={{ marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+        <div className="mt-3 sm:mt-4 max-h-[60vh] sm:max-h-96 overflow-y-auto space-y-2 -mx-3 sm:-mx-4 px-3 sm:px-4">
           {songs.map((song) => (
-            <div key={song.trackId} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '10px 0',
-              borderBottom: '1px solid #eee',
-              cursor: 'pointer'
-            }}>
+            <div
+              key={song.trackId}
+              onClick={() => handleSongClick(song)}
+              className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-700/50 active:bg-gray-700 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors touch-manipulation"
+            >
               <img 
                 src={song.artworkUrl100} 
                 alt={song.trackName} 
-                style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }}
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0"
               />
-              <div style={{ flex: 1, textAlign: 'left', overflow: 'hidden' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-white text-xs sm:text-sm truncate">
                   {song.trackName}
                 </div>
-                <div style={{ fontSize: '13px', color: '#666' }}>
+                <div className="text-gray-400 text-xs truncate">
                   {song.artistName}
                 </div>
               </div>
-              {/* preview button (Optional) */}
-              <a 
-                href={song.previewUrl} 
-                target="_blank" 
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()} // prevent parent event
-                style={{ fontSize: '20px', textDecoration: 'none' }}
-              >
-                ▶️
-              </a>
+              {song.previewUrl && (
+                <a 
+                  href={song.previewUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-primary-400 hover:text-primary-300 text-lg sm:text-xl flex-shrink-0"
+                >
+                  ▶️
+                </a>
+              )}
             </div>
           ))}
         </div>

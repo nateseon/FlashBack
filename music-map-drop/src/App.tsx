@@ -1,17 +1,53 @@
-import './index.css'
-import { MapComponent } from './components/Map';
-import { MusicSearch } from './components/MusicSearch';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Layout } from './components/Layout';
+import { HomePage } from './pages/HomePage';
+import { ARPage } from './pages/ARPage';
+import { DropPage } from './pages/DropPage';
+import { CardDetailPage } from './pages/CardDetailPage';
+import { DropsProvider } from './state/drops';
+import './index.css';
 
 function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* 1. map (background) */}
-      <MapComponent />
-      
-      {/* 2. music search (floating above the map) */}
-      <MusicSearch />
-    </div>
-  )
+    <DropsProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Layout showMicButton={false}>
+                <HomePage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/ar"
+            element={
+              <Layout showMicButton={true}>
+                <ARPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/drop"
+            element={
+              <Layout>
+                <DropPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/card/:id"
+            element={
+              <Layout>
+                <CardDetailPage />
+              </Layout>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </DropsProvider>
+  );
 }
 
-export default App
+export default App;
