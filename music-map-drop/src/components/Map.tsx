@@ -1,5 +1,6 @@
-import { APIProvider, Map } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
 import type { MapCameraChangedEvent } from '@vis.gl/react-google-maps';
+import type { Drop } from '../types/drop';
 
 console.log('VITE key:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 
@@ -13,12 +14,17 @@ if (!API_KEY || API_KEY === 'your_api_key_here') {
   console.error('Please set VITE_GOOGLE_MAPS_API_KEY in your .env file');
 }
 
-export const MapComponent = () => {
-  // innitial location: Seattle
+type MapComponentProps = {
+  drops: Drop[];
+  center: { lat: number; lng: number };
+};
+
+export const MapComponent = ({ drops, center }: MapComponentProps) => {
+  // initial location fallback: Seattle
   const defaultCenter = { lat: 47.6205, lng: -122.3493 };
   
   // Show error message if API key is missing
-  if (!API_KEY || API_KEY === 'your_api_key_here') {
+  if (!API_KEY || API_KEY === 'VITE_GOOGLE_MAPS_API_KEY') {
     return (
       <div style={{ 
         width: '100vw', 
@@ -44,6 +50,7 @@ export const MapComponent = () => {
       <div style={{ width: '100vw', height: '100vh' }}>
         <Map
           defaultCenter={defaultCenter}
+          center={center || defaultCenter}
           defaultZoom={13}
           gestureHandling={'greedy'} // improve mobile touch experience
           disableDefaultUI={true}    // hide default UI
@@ -51,7 +58,13 @@ export const MapComponent = () => {
             console.log('camera changed:', ev.detail.center, 'zoom:', ev.detail.zoom)
           }
         >
-          {/* markers will be added here later */}
+          {drops.map((drop) => (
+            <Marker
+              key={drop.id}
+              position={{ lat: drop.lat, lng: drop.lng }}
+              title={drop.title}
+            />
+          ))}
         </Map>
       </div>
     </APIProvider>

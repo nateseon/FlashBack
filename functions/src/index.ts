@@ -84,3 +84,93 @@ export const createDrop = functions.https.onCall(async (request) => {
     throw new functions.https.HttpsError("internal", "An error occurred while saving.");
   }
 });
+
+// ElevenLabs TTS request payload
+interface TtsRequestBody {
+  text?: string;
+  voiceId?: string;
+}
+
+/**
+ * POST /tts
+ * Body: { text: string; voiceId?: string }
+ * Response: audio/mpeg (MP3) binary
+ */
+export const tts = functions.https.onRequest(async (req, res) => {
+  // Basic CORS (open for rapid prototyping; tighten for production)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  // Use only the standard env/secret key name
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE;
+
+  if (!apiKey) {
+    console.error("ELEVENLABS_API_KEY is not set");
+    res.status(500).json({ error: "TTS configuration error (missing api key)" });
+    return;
+  }
+
+  const body = req.body as TtsRequestBody;
+  const text = body?.text?.trim();
+  const voiceId = body?.voiceId || defaultVoiceId;
+
+  if (!text) {
+    res.status(400).json({ error: "text is required" });
+    return;
+  }
+
+  if (!voiceId) {
+    console.error("ELEVENLABS_DEFAULT_VOICE (or voiceId in body) is not set");
+    res.status(500).json({ error: "TTS voice configuration error" });
+    return;
+  }
+
+  try {
+    const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const elevenResponse = await fetch(elevenLabsUrl, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        // Optionally extend with model_id or voice_settings if needed later
+        // model_id: "eleven_multilingual_v2",
+      }),
+    });
+
+    if (!elevenResponse.ok) {
+      const errorText = await elevenResponse.text().catch(() => "");
+      console.error("ElevenLabs TTS error", elevenResponse.status, errorText);
+      res
+        .status(502)
+        .json({ error: "TTS provider error", status: elevenResponse.status });
+      return;
+    }
+
+    const audioArrayBuffer = await elevenResponse.arrayBuffer();
+    const audioBuffer = Buffer.from(audioArrayBuffer);
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", audioBuffer.byteLength.toString());
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(audioBuffer);
+  } catch (error) {
+    console.error("Unexpected TTS error", error);
+    res.status(500).json({ error: "Internal TTS error" });
+  }
+});

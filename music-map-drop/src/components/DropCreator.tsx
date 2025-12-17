@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { searchMusic } from '../api/itunes';
 import type { ItunesSong } from '../types/music';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase'; // Import Firebase configuration
+import type { Drop } from '../types/drop';
 
-export const DropCreator = () => {
+type DropCreatorProps = {
+  onAddDrop: (drop: Drop) => void;
+  onGeolocationError?: (error: GeolocationPositionError) => void;
+};
+
+export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps) => {
   // 1. State Management (Search + Selected Song + Input Form)
   const [term, setTerm] = useState('');
   const [songs, setSongs] = useState<ItunesSong[]>([]);
@@ -25,7 +29,7 @@ export const DropCreator = () => {
     setIsLoading(false);
   };
 
-  // 3. Drop Save Handler (Core Feature!)
+  // 3. Drop Save Handler (Core Feature! - local state only)
   const handleSaveDrop = async () => {
     if (!selectedSong) return;
     setIsLoading(true);
@@ -41,26 +45,24 @@ export const DropCreator = () => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          
-          // Prepare server function call
-          const createDrop = httpsCallable(functions, 'createDrop');
-          
-          const payload = {
-            trackName: selectedSong.trackName,
-            artistName: selectedSong.artistName,
+
+          const newDrop: Drop = {
+            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
+            title: selectedSong.trackName,
+            artist: selectedSong.artistName,
             coverUrl: selectedSong.artworkUrl100,
             previewUrl: selectedSong.previewUrl,
-            userText: comment,
+            text: comment,
             mood: mood,
-            latitude,
-            longitude
+            lat: latitude,
+            lng: longitude,
+            createdAt: Date.now(),
           };
 
-          // Send to server! 🚀
-          const result = await createDrop(payload);
-          console.log("Save Success:", result.data);
-          
-          alert("🎉 Memory dropped on the map successfully!");
+          // Add to local state via parent handler
+          onAddDrop(newDrop);
+
+          alert("🎉 Memory dropped locally! (map + list updated)");
           
           // Reset (Back to search screen)
           setSelectedSong(null);
@@ -76,7 +78,11 @@ export const DropCreator = () => {
       },
       (error) => {
         console.error("Location Error:", error);
-        alert("Cannot retrieve location. Please enable GPS!");
+        if (onGeolocationError) {
+          onGeolocationError(error);
+        } else {
+          alert("Cannot retrieve location. Please enable GPS!");
+        }
         setIsLoading(false);
       }
     );
