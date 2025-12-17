@@ -2,41 +2,41 @@
 
 ## Backend – ElevenLabs TTS (Day 5)
 
-### 환경 변수/시크릿 설정
-- Functions 배포용 시크릿(권장):  
+### Environment Variables/Secrets Setup
+- For Functions deployment (recommended):  
   `firebase functions:secrets:set ELEVENLABS_API_KEY`  
   `firebase functions:secrets:set ELEVENLABS_DEFAULT_VOICE`
-- 로컬 에뮬레이터에서 사용할 경우(예시):  
-  - `functions/.env`에 아래 형태로 추가 (Git에 올리지 말 것)  
+- For local emulator usage:  
+  - Add to `functions/.env` in the following format (do not commit to Git):  
     ```
     ELEVENLABS_API_KEY=<your_key>
     ELEVENLABS_DEFAULT_VOICE=<voice_id>
     ```  
-  - 또는 `firebase functions:secrets:access ELEVENLABS_API_KEY`로 가져와 환경변수로 주입 후 에뮬레이터 실행.
+  - Or use `firebase functions:secrets:access ELEVENLABS_API_KEY` to retrieve and inject as environment variable before starting the emulator.
 
 ### HTTPS Function: POST /tts
-- 파일: `functions/src/index.ts`  
-- 요청 바디(JSON): `{ "text": string, "voiceId"?: string }`  
-  - `voiceId`가 없으면 `ELEVENLABS_DEFAULT_VOICE` 사용.
-- 응답: `audio/mpeg` MP3 바이너리
+- File: `functions/src/index.ts`  
+- Request body (JSON): `{ "text": string, "voiceId"?: string }`  
+  - If `voiceId` is not provided, `ELEVENLABS_DEFAULT_VOICE` will be used.
+- Response: `audio/mpeg` MP3 binary
 
-### 로컬 에뮬레이터 테스트
+### Local Emulator Testing
 ```bash
 cd functions
 npm run build
 cd ..
 firebase emulators:start --only functions
 ```
-테스트:
+Test:
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"text":"안녕하세요, FlashBack ElevenLabs 테스트입니다."}' \
+  -d '{"text":"Hello, FlashBack ElevenLabs test."}' \
   http://localhost:5001/<project-id>/us-central1/tts \
   --output local-test.mp3
 ```
 
-### 배포 후 테스트
+### Production Testing
 ```bash
 cd functions
 npm run build
@@ -45,7 +45,98 @@ firebase deploy --only functions:tts
 
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"text":"프로덕션 TTS 테스트입니다."}' \
+  -d '{"text":"Production TTS test."}' \
   https://us-central1-<project-id>.cloudfunctions.net/tts \
   --output prod-test.mp3
 ```
+
+---
+
+## Backend – Gemini AI Integration (Day 8-10)
+
+### Environment Setup
+- Vertex AI automatically authenticates using the GCP project where Firebase Functions runs.
+- No additional API key setup required (uses GCP project default authentication).
+
+### HTTPS Function: POST /ai/ask
+
+**Request Body (JSON):**
+```json
+{
+  "text": "Are there any sad songs here?",
+  "audioUrl": "https://...",  // Optional (STT not implemented yet)
+  "location": {
+    "latitude": 37.5665,
+    "longitude": 126.9780
+  }
+}
+```
+
+**Response (JSON):**
+```json
+{
+  "answerText": "There are a few songs with a sad mood nearby...",
+  "tracks": [
+    {
+      "trackName": "Song Title",
+      "artistName": "Artist Name",
+      "mood": "sad",
+      "coverUrl": "https://...",
+      "previewUrl": "https://...",
+      "userText": "I listened to this song while...",
+      "distance": 0.5
+    }
+  ],
+  "ttsAudioUrl": "data:audio/mpeg;base64,..."  // Optional
+}
+```
+
+**Features:**
+- Uses Gemini 1.5 Flash model
+- Responds with an emotional DJ persona
+- Queries location-based music drops from Firestore (5km radius)
+- Converts response text to ElevenLabs TTS (returns base64-encoded audio URL)
+
+### Local Testing
+```bash
+cd functions
+npm run build
+cd ..
+firebase emulators:start --only functions,firestore
+```
+
+Test request:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "What songs are nearby?",
+    "location": {
+      "latitude": 37.5665,
+      "longitude": 126.9780
+    }
+  }' \
+  http://localhost:5001/<project-id>/us-central1/aiAsk
+```
+
+### Deployment
+```bash
+cd functions
+npm run build
+cd ..
+firebase deploy --only functions:aiAsk
+```
+
+### API Contract (For Frontend)
+
+**Endpoint:** `POST /ai/ask`
+
+**Request:**
+- `text` (string, optional): User question text
+- `audioUrl` (string, optional): Audio URL (STT not implemented)
+- `location` (object, required): `{ latitude: number, longitude: number }`
+
+**Response:**
+- `answerText` (string): AI response text
+- `tracks` (array): Recommended track list (max 5 tracks)
+- `ttsAudioUrl` (string, optional): TTS audio URL (base64 data URL)
