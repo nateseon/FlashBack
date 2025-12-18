@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { VertexAI } from "@google-cloud/vertexai";
+import { SpeechClient } from "@google-cloud/speech";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -9,6 +10,9 @@ const db = admin.firestore();
 const projectId = process.env.GCLOUD_PROJECT || "flashback-25e2f";
 const location = "us-central1";
 const vertexAI = new VertexAI({ project: projectId, location });
+
+// Initialize Speech-to-Text client
+const speechClient = new SpeechClient();
 
 // Request data interface
 interface CreateDropRequest {
@@ -182,6 +186,77 @@ export const tts = functions.https.onRequest(async (req, res) => {
 });
 
 // ========== Day 8-10: Gemini AI Integration ==========
+// ========== Day 11-12: STT Integration ==========
+
+// Helper: Convert audio URL to text using Google Cloud Speech-to-Text
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  try {
+    // Download audio from URL
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      console.error("Failed to download audio:", audioResponse.status);
+      return null;
+    }
+
+    const audioBuffer = await audioResponse.arrayBuffer();
+    const audioBytes = Buffer.from(audioBuffer).toString("base64");
+
+    // Detect audio format from URL or Content-Type
+    // Default to WEBM_OPUS (common from MediaRecorder), but try to detect
+    let encoding: "WEBM_OPUS" | "LINEAR16" | "FLAC" | "MP3" = "WEBM_OPUS";
+    const contentType = audioResponse.headers.get("content-type") || "";
+    const urlLower = audioUrl.toLowerCase();
+    
+    if (urlLower.includes(".wav") || contentType.includes("wav")) {
+      encoding = "LINEAR16";
+    } else if (urlLower.includes(".flac") || contentType.includes("flac")) {
+      encoding = "FLAC";
+    } else if (urlLower.includes(".mp3") || contentType.includes("mp3")) {
+      encoding = "MP3";
+    }
+
+    // Configure Speech-to-Text request
+    const request = {
+      audio: {
+        content: audioBytes,
+      },
+      config: {
+        encoding: encoding,
+        sampleRateHertz: encoding === "WEBM_OPUS" ? 48000 : 16000, // Adjust based on format
+        languageCode: "ko-KR", // Korean (primary)
+        alternativeLanguageCodes: ["en-US"], // Fallback to English
+        enableAutomaticPunctuation: true,
+        model: "latest_long", // Best for longer audio
+        useEnhanced: true, // Use enhanced model for better accuracy
+      },
+    };
+
+    // Perform transcription with timeout
+    const [response] = await Promise.race([
+      speechClient.recognize(request),
+      new Promise<any>((_, reject) => 
+        setTimeout(() => reject(new Error("STT timeout")), 10000) // 10s timeout
+      ),
+    ]);
+    
+    if (!response.results || response.results.length === 0) {
+      console.warn("No transcription results");
+      return null;
+    }
+
+    // Combine all transcription results
+    const transcript = response.results
+      .map((result: any) => result.alternatives?.[0]?.transcript)
+      .filter((text: any) => text)
+      .join(" ");
+
+    return transcript || null;
+  } catch (error) {
+    console.error("STT error:", error);
+    // Return null to allow fallback to text input
+    return null;
+  }
+}
 
 // Helper: Query nearby drops from Firestore
 async function queryNearbyDrops(
@@ -348,17 +423,35 @@ export const aiAsk = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    // For now, we'll use text input. Audio STT can be added later.
-    const userQuery = text || "[Audio input - STT not implemented yet]";
+    // Process audio input if provided (Day 11-12: STT integration)
+    let userQuery = text;
+    
+    // Start Firestore query and STT in parallel for better performance
+    const [nearbyDrops, transcribedText] = await Promise.all([
+      queryNearbyDrops(
+        location.latitude,
+        location.longitude,
+        5, // 5km radius
+        undefined, // No mood filter for now
+        20 // Limit to 20 drops
+      ),
+      audioUrl && !text ? transcribeAudio(audioUrl) : Promise.resolve(null),
+    ]);
 
-    // Query nearby drops
-    const nearbyDrops = await queryNearbyDrops(
-      location.latitude,
-      location.longitude,
-      5, // 5km radius
-      undefined, // No mood filter for now
-      20 // Limit to 20 drops
-    );
+    if (!userQuery && audioUrl) {
+      if (transcribedText) {
+        userQuery = transcribedText;
+        console.log("STT result:", transcribedText);
+      } else {
+        res.status(400).json({ error: "Failed to transcribe audio. Please try again or use text input." });
+        return;
+      }
+    }
+
+    if (!userQuery) {
+      res.status(400).json({ error: "Either text or audioUrl with valid transcription is required" });
+      return;
+    }
 
     // Initialize Gemini model with Function Calling
     const model = vertexAI.preview.getGenerativeModel({

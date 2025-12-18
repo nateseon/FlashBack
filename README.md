@@ -133,10 +133,59 @@ firebase deploy --only functions:aiAsk
 
 **Request:**
 - `text` (string, optional): User question text
-- `audioUrl` (string, optional): Audio URL (STT not implemented)
+- `audioUrl` (string, optional): Audio URL (STT implemented - Day 11-12)
 - `location` (object, required): `{ latitude: number, longitude: number }`
 
 **Response:**
 - `answerText` (string): AI response text
 - `tracks` (array): Recommended track list (max 5 tracks)
 - `ttsAudioUrl` (string, optional): TTS audio URL (base64 data URL)
+
+---
+
+## Backend – STT Integration (Day 11-12)
+
+### Speech-to-Text Pipeline
+
+**Complete Pipeline:**
+```
+[Audio URL] → [Google Cloud Speech-to-Text] → [Transcribed Text] 
+→ [Gemini AI] → [Response Text] → [ElevenLabs TTS] → [Audio Stream]
+```
+
+### Features
+- **Google Cloud Speech-to-Text** integration
+- Supports Korean (ko-KR) and English (en-US) with automatic language detection
+- Optimized for web audio formats (WEBM_OPUS, 48kHz)
+- Parallel processing: STT and Firestore queries run simultaneously for better latency
+
+### Audio Format Support
+- **Encoding**: WEBM_OPUS (default from MediaRecorder API)
+- **Sample Rate**: 48kHz
+- **Languages**: Korean (primary), English (fallback)
+- **Model**: `latest_long` (optimized for longer audio)
+
+### Performance Optimization (Day 13-14)
+- **Parallel Processing**: STT transcription and Firestore queries run in parallel
+- **Target Latency**: < 3 seconds end-to-end
+- **Error Handling**: Graceful fallback to text input if STT fails
+
+### Testing Audio Input
+```bash
+# Test with audio URL
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audioUrl": "https://example.com/audio.webm",
+    "location": {
+      "latitude": 37.5665,
+      "longitude": 126.9780
+    }
+  }' \
+  http://localhost:5001/<project-id>/us-central1/aiAsk
+```
+
+### Environment Setup
+- Google Cloud Speech-to-Text API must be enabled in your GCP project
+- No additional API keys required (uses GCP project default authentication)
+- Enable API: `gcloud services enable speech.googleapis.com`
