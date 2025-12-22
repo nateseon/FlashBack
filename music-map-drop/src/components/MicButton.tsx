@@ -1,62 +1,133 @@
-import { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import type { AiConversationStatus } from '../types/ai';
 
-interface MicButtonProps {
-  onStartRecording?: () => void;
-  onStopRecording?: () => void;
-}
+type MicButtonProps = {
+  status: AiConversationStatus;
+  onStatusChange: (status: AiConversationStatus) => void;
+  onRecordingComplete: (audioBlob: Blob) => void;
+  onError?: (error: Error) => void;
+  disabled?: boolean;
+};
 
-export const MicButton = ({ onStartRecording, onStopRecording }: MicButtonProps) => {
+export const MicButton: React.FC<MicButtonProps> = ({
+  status,
+  onStatusChange,
+  onRecordingComplete,
+  onError,
+  disabled = false,
+}) => {
   const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  const handleClick = () => {
-    if (isRecording) {
-      setIsRecording(false);
-      onStopRecording?.();
-      console.log('녹음 중지');
-    } else {
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        onRecordingComplete(audioBlob);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
       setIsRecording(true);
-      onStartRecording?.();
-      console.log('녹음 시작');
+      onStatusChange('recording');
+    } catch (error: any) {
+      console.error('Failed to start recording:', error);
+      onStatusChange('idle');
+      
+      // 마이크 권한 거부 시 에러 콜백 호출
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        onError?.(new Error('Microphone permission is required. Please allow microphone access in your browser settings.'));
+      } else {
+        onError?.(error);
+      }
     }
-  };
+  }, [onStatusChange, onRecordingComplete]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      onStatusChange('thinking');
+    }
+  }, [isRecording, onStatusChange]);
+
+  const handleClick = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }, [isRecording, startRecording, stopRecording]);
+
+  const showPulse = isRecording;
 
   return (
     <button
       onClick={handleClick}
-      className={`
-        relative w-16 h-16 rounded-full
-        flex items-center justify-center
-        transition-all duration-300
-        ${isRecording 
-          ? 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse' 
-          : 'bg-primary-600 hover:bg-primary-700 shadow-lg'
+      disabled={disabled || status === 'thinking' || status === 'playing'}
+      style={{
+        width: '64px',
+        height: '64px',
+        borderRadius: '50%',
+        border: 'none',
+        backgroundColor: isRecording ? '#FF2D55' : '#007bff',
+        color: 'white',
+        cursor: disabled || status === 'thinking' || status === 'playing' ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '24px',
+        boxShadow: showPulse
+          ? '0 0 0 0 rgba(255, 45, 85, 0.7), 0 0 0 0 rgba(255, 45, 85, 0.7)'
+          : '0 4px 12px rgba(0,0,0,0.15)',
+        animation: showPulse ? 'pulse 1.5s infinite' : 'none',
+        transition: 'all 0.3s ease',
+        opacity: disabled || status === 'thinking' || status === 'playing' ? 0.6 : 1,
+      }}
+      onMouseDown={(e) => {
+        if (!isRecording && !disabled) {
+          e.preventDefault();
+          startRecording();
         }
-      `}
+      }}
+      onMouseUp={(e) => {
+        if (isRecording) {
+          e.preventDefault();
+          stopRecording();
+        }
+      }}
     >
-      {/* 글로우 효과 */}
-      {isRecording && (
-        <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
-      )}
-      
-      {/* 링 효과 */}
-      {isRecording && (
-        <div className="absolute inset-0 rounded-full border-4 border-red-400 animate-pulse" />
-      )}
-
-      {/* 마이크 아이콘 */}
-      <svg
-        className={`w-8 h-8 text-white ${isRecording ? 'animate-pulse' : ''}`}
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-        />
-      </svg>
+      {status === 'thinking' ? '🤔' : isRecording ? '🎤' : '🎙️'}
+      <style>{`
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(255, 45, 85, 0.7), 0 0 0 0 rgba(255, 45, 85, 0.7);
+          }
+          50% {
+            box-shadow: 0 0 0 10px rgba(255, 45, 85, 0), 0 0 0 20px rgba(255, 45, 85, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(255, 45, 85, 0), 0 0 0 0 rgba(255, 45, 85, 0);
+          }
+        }
+      `}</style>
     </button>
   );
 };

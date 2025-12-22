@@ -1,0 +1,937 @@
+import * as functions from "firebase-functions/v1";
+import * as admin from "firebase-admin";
+import { VertexAI } from "@google-cloud/vertexai";
+import { SpeechClient } from "@google-cloud/speech";
+import { GeoPoint, FieldValue } from "@google-cloud/firestore";
+
+// Load environment variables from .env file in development (emulator)
+// Note: For Firebase Functions Emulator, you can also set env vars in firebase.json
+// or use: firebase emulators:start --only functions --env-file functions/.env
+if (process.env.FUNCTIONS_EMULATOR === "true") {
+  try {
+    // Try to load dotenv if available (install with: npm install --save-dev dotenv)
+    const dotenv = require("dotenv");
+    dotenv.config();
+    console.log("Loaded environment variables from .env file");
+  } catch (error) {
+    // dotenv not installed, use system environment variables
+    console.log("dotenv not available, using system environment variables");
+  }
+}
+
+admin.initializeApp();
+const db = admin.firestore();
+
+// Initialize Vertex AI (Gemini)
+const projectId = process.env.GCLOUD_PROJECT || "flashback-25e2f";
+const location = "us-central1";
+const vertexAI = new VertexAI({ project: projectId, location });
+
+// Initialize Speech-to-Text client
+const speechClient = new SpeechClient();
+
+// Request data interface
+interface CreateDropRequest {
+  artistName?: string;
+  trackName?: string;
+  coverUrl?: string;
+  previewUrl?: string;
+  userText?: string;
+  mood?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+// 1. Create drop function (customized for screenshot schema)
+export const createDrop = functions.https.onCall(async (request) => {
+  // (Optional) Authentication check: Can be commented out during testing if needed
+//   if (!request.auth) {
+//     throw new functions.https.HttpsError(
+//       "unauthenticated",
+//       "Authentication is required for this feature."
+//     );
+//   }
+
+  // 2. Receive data from frontend (matching schema field names)
+  const data = request.data as CreateDropRequest;
+  const { 
+    artistName, 
+    trackName, 
+    coverUrl, 
+    previewUrl, 
+    userText, 
+    mood, 
+    latitude, 
+    longitude 
+  } = data;
+
+  // 3. Validate required data
+  if (!trackName || !latitude || !longitude) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Required information (track name, location) is missing."
+    );
+  }
+
+  try {
+    // In emulator, skip Firestore save to avoid production access
+    if (process.env.FUNCTIONS_EMULATOR === "true") {
+      console.log("Running in emulator - skipping Firestore save (using mock ID)");
+      // Return mock success response for local development
+      const mockId = `mock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return { 
+        success: true, 
+        id: mockId, 
+        message: "Drop saved successfully! (Local dev - not saved to Firestore)" 
+      };
+    }
+
+    // 4. Create object to save to database (Production only)
+    const newDrop = {
+      // Music information
+      artistName: artistName || "Unknown Artist",
+      trackName: trackName,
+      coverUrl: coverUrl || "",
+      previewUrl: previewUrl || "",
+
+      // User input
+      userText: userText || "",
+      mood: mood || "neutral", // Default value (sad, happy, calm, etc.)
+      
+      // System management fields
+      likeCount: 0, // Initially 0 likes
+      // Create GeoPoint using @google-cloud/firestore
+      location: new GeoPoint(latitude, longitude), // Convert latitude/longitude
+      // Use FieldValue from @google-cloud/firestore
+      timestamp: FieldValue.serverTimestamp(), // Server timestamp
+      
+      // (Recommended) It's safer to get author information from request.auth
+      // Not in the screenshot, but needed later to find 'my posts'
+      uid: request.auth?.uid || "anonymous", 
+    };
+
+    // 5. Save to 'drops' collection (Production only)
+    const docRef = await db.collection("drops").add(newDrop);
+
+    return { 
+      success: true, 
+      id: docRef.id, 
+      message: "Drop saved successfully!" 
+    };
+
+  } catch (error: any) {
+    console.error("Error creating drop:", error);
+    console.error("Error details:", error?.message || String(error));
+    console.error("Error stack:", error?.stack);
+    
+    // 더 자세한 에러 정보 제공
+    const errorMessage = error?.message || "An error occurred while saving.";
+    throw new functions.https.HttpsError(
+      "internal", 
+      errorMessage,
+      { originalError: String(error) }
+    );
+  }
+});
+
+// ElevenLabs TTS request payload
+interface TtsRequestBody {
+  text?: string;
+  voiceId?: string;
+}
+
+/**
+ * POST /tts
+ * Body: { text: string; voiceId?: string }
+ * Response: audio/mpeg (MP3) binary
+ */
+export const tts = functions.runWith({
+  timeoutSeconds: 120,
+  memory: '256MB'
+}).https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
+  // Basic CORS (open for rapid prototyping; tighten for production)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  // Use only the standard env/secret key name
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE;
+
+  if (!apiKey) {
+    console.error("ELEVENLABS_API_KEY is not set");
+    res.status(500).json({ error: "TTS configuration error (missing api key)" });
+    return;
+  }
+
+  const body = req.body as TtsRequestBody;
+  const text = body?.text?.trim();
+  const voiceId = body?.voiceId || defaultVoiceId;
+
+  if (!text) {
+    res.status(400).json({ error: "text is required" });
+    return;
+  }
+
+  if (!voiceId) {
+    console.error("ELEVENLABS_DEFAULT_VOICE (or voiceId in body) is not set");
+    res.status(500).json({ error: "TTS voice configuration error" });
+    return;
+  }
+
+  try {
+    const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const elevenResponse = await fetch(elevenLabsUrl, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        // Optionally extend with model_id or voice_settings if needed later
+        // model_id: "eleven_multilingual_v2",
+      }),
+    });
+
+    if (!elevenResponse.ok) {
+      const errorText = await elevenResponse.text().catch(() => "");
+      console.error("ElevenLabs TTS error", elevenResponse.status, errorText);
+      res
+        .status(502)
+        .json({ error: "TTS provider error", status: elevenResponse.status });
+      return;
+    }
+
+    const audioArrayBuffer = await elevenResponse.arrayBuffer();
+    const audioBuffer = Buffer.from(audioArrayBuffer);
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", audioBuffer.byteLength.toString());
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(audioBuffer);
+  } catch (error) {
+    console.error("Unexpected TTS error", error);
+    res.status(500).json({ error: "Internal TTS error" });
+  }
+});
+
+// Storytelling endpoint: AI가 컨텍스트 추가 후 TTS
+interface StorytellingRequest {
+  title: string;
+  artist?: string;
+  mood?: string;
+  text?: string;
+  lat: number;
+  lng: number;
+  createdAt: number;
+  timezone?: string; // Client timezone (e.g., "Asia/Seoul", "America/Los_Angeles")
+}
+
+export const storytelling = functions.runWith({
+  timeoutSeconds: 120,
+  memory: '256MB'
+}).https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
+  // Set CORS headers first (so they're sent even if an error occurs)
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  try {
+    const body = req.body as StorytellingRequest;
+    const { title, artist, mood, text, createdAt, timezone } = body;
+
+    if (!text) {
+      res.status(400).json({ error: "text is required" });
+      return;
+    }
+
+    // Format date (English) - Use client's timezone if provided
+    // createdAt is a timestamp (UTC milliseconds from Date.now())
+    const date = new Date(createdAt);
+    
+    // Debug log to check timezone
+    console.log("Storytelling debug:", {
+      createdAt,
+      timezone,
+      dateUTC: date.toISOString(),
+    });
+    
+    // Use client timezone if provided, otherwise default to UTC
+    // This converts the UTC timestamp to the client's local time
+    const formattedDate = date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone || 'UTC', // Use client timezone if available
+    });
+    
+    console.log("Formatted date:", formattedDate);
+
+    // Generate storytelling text with Gemini AI
+    let storytellingText: string;
+
+    // In local environment, use default text without trying Gemini
+    if (process.env.FUNCTIONS_EMULATOR === "true") {
+      console.log("Running in emulator - using default storytelling text");
+      const musicDesc = `${title}${artist ? ` by ${artist}` : ''}${mood ? ` - a ${mood} moment` : ''}`;
+      storytellingText = `On ${formattedDate}, a moment with ${musicDesc}. ${text}`;
+    } else {
+      // Production: Try Gemini AI
+      try {
+        const model = vertexAI.preview.getGenerativeModel({
+          model: "gemini-1.5-flash",
+          generationConfig: {
+            maxOutputTokens: 512,
+            temperature: 0.8,
+          },
+          systemInstruction: `You are a warm, emotional storyteller. Create a brief, poetic introduction (2-3 sentences) that sets the scene for a music memory. CRITICAL: Use the EXACT date and time provided in the prompt - do NOT convert, interpret, or modify it in any way. Never add "UTC" or any timezone. Never mention specific coordinates. Always respond in English. Read the user's memory text exactly as written, word-for-word.`,
+        });
+
+        // Build music information
+        const musicInfo = [];
+        if (title) musicInfo.push(`Music: ${title}`);
+        if (artist) musicInfo.push(`Artist: ${artist}`);
+        if (mood) musicInfo.push(`Mood: ${mood}`);
+
+        const prompt = `Create a storytelling narration for this music memory.
+
+CRITICAL: You MUST use EXACTLY this date and time: "${formattedDate}"
+Do NOT convert, modify, or interpret this time in any way. Use it EXACTLY as provided.
+
+Music: ${title}${artist ? ` by ${artist}` : ''}
+Mood: ${mood || 'unknown'}
+
+User memory (read exactly as written):
+"${text}"
+
+Create a 2-3 sentence introduction, then read the user's memory text word-for-word.
+Start with: "On ${formattedDate}..."
+Do not mention coordinates or locations.
+Do not convert or change the time in any way.`;
+
+        // Add timeout to prevent hanging (30 seconds for storytelling)
+        const geminiPromise = model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+        });
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Gemini API timeout after 30 seconds")), 30000);
+        });
+
+        const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
+        const response = result.response;
+        storytellingText = response.candidates?.[0]?.content?.parts?.[0]?.text || 
+          `On ${formattedDate}, a moment with ${title}${artist ? ` by ${artist}` : ''}${mood ? ` - a ${mood} moment` : ''}. ${text}`;
+      } catch (geminiError: any) {
+        // Use default text when Gemini fails (without coordinates)
+        console.warn("Gemini API call failed, using default text:", geminiError.message);
+        const musicDesc = `${title}${artist ? ` by ${artist}` : ''}${mood ? ` - a ${mood} moment` : ''}`;
+        storytellingText = `On ${formattedDate}, a moment with ${musicDesc}. ${text}`;
+      }
+    }
+
+    // Convert to ElevenLabs TTS
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE;
+
+    if (!apiKey || !defaultVoiceId) {
+      res.status(500).json({ error: "TTS configuration error" });
+      return;
+    }
+
+    const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${defaultVoiceId}`;
+    const elevenResponse = await fetch(elevenLabsUrl, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({ text: storytellingText }),
+    });
+
+    if (!elevenResponse.ok) {
+      const errorText = await elevenResponse.text().catch(() => "");
+      console.error("ElevenLabs TTS error", elevenResponse.status, errorText);
+      res.status(502).json({ error: "TTS provider error", status: elevenResponse.status });
+      return;
+    }
+
+    const audioArrayBuffer = await elevenResponse.arrayBuffer();
+    const audioBuffer = Buffer.from(audioArrayBuffer);
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", audioBuffer.byteLength.toString());
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(audioBuffer);
+  } catch (error) {
+    console.error("Unexpected storytelling error", error);
+    // 에러 발생 시에도 CORS 헤더 설정
+    setCorsHeaders(res);
+    res.status(500).json({ error: "Internal storytelling error" });
+  }
+});
+
+// ========== Day 8-10: Gemini AI Integration ==========
+// ========== Day 11-12: STT Integration ==========
+
+// Helper: Convert audio URL to text using Google Cloud Speech-to-Text
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  try {
+    let audioBytes: string;
+    let encoding: "WEBM_OPUS" | "LINEAR16" | "FLAC" | "MP3" = "WEBM_OPUS";
+    const urlLower = audioUrl.toLowerCase();
+
+    // Handle base64 data URL (from frontend)
+    if (audioUrl.startsWith("data:")) {
+      // Extract base64 data from data URL
+      // Format: data:audio/webm;base64,<base64data>
+      const base64Match = audioUrl.match(/^data:audio\/([^;]+);base64,(.+)$/);
+      if (!base64Match) {
+        console.error("Invalid data URL format");
+        return null;
+      }
+      
+      const mimeType = base64Match[1];
+      const base64Data = base64Match[2];
+      audioBytes = base64Data;
+
+      // Detect encoding from MIME type
+      if (mimeType.includes("webm") || mimeType.includes("opus")) {
+        encoding = "WEBM_OPUS";
+      } else if (mimeType.includes("wav")) {
+        encoding = "LINEAR16";
+      } else if (mimeType.includes("flac")) {
+        encoding = "FLAC";
+      } else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {
+        encoding = "MP3";
+      }
+    } else {
+      // Download audio from HTTP URL
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) {
+        console.error("Failed to download audio:", audioResponse.status);
+        return null;
+      }
+
+      const audioBuffer = await audioResponse.arrayBuffer();
+      audioBytes = Buffer.from(audioBuffer).toString("base64");
+
+      // Detect audio format from URL or Content-Type
+      const contentType = audioResponse.headers.get("content-type") || "";
+      
+      if (urlLower.includes(".wav") || contentType.includes("wav")) {
+        encoding = "LINEAR16";
+      } else if (urlLower.includes(".flac") || contentType.includes("flac")) {
+        encoding = "FLAC";
+      } else if (urlLower.includes(".mp3") || contentType.includes("mp3")) {
+        encoding = "MP3";
+      }
+    }
+
+    // Configure Speech-to-Text request
+    const request = {
+      audio: {
+        content: audioBytes,
+      },
+      config: {
+        encoding: encoding,
+        sampleRateHertz: encoding === "WEBM_OPUS" ? 48000 : 16000, // Adjust based on format
+        languageCode: "en-US", // English (primary)
+        alternativeLanguageCodes: ["ko-KR"], // Fallback to Korean
+        enableAutomaticPunctuation: true,
+        model: "latest_long", // Best for longer audio
+        useEnhanced: true, // Use enhanced model for better accuracy
+      },
+    };
+
+    // Perform transcription with timeout (shorter timeout for faster failure)
+    // In local development, STT may fail due to GCP authentication issues
+    const timeoutMs = process.env.FUNCTIONS_EMULATOR === "true" ? 5000 : 10000; // 5s for emulator, 10s for production
+    
+    try {
+      const [response] = await Promise.race([
+        speechClient.recognize(request),
+        new Promise<any>((_, reject) => 
+          setTimeout(() => reject(new Error("STT timeout")), timeoutMs)
+        ),
+      ]);
+      
+      if (!response.results || response.results.length === 0) {
+        console.warn("No transcription results");
+        return null;
+      }
+
+      // Combine all transcription results
+      const transcript = response.results
+        .map((result: any) => result.alternatives?.[0]?.transcript)
+        .filter((text: any) => text)
+        .join(" ");
+
+      return transcript || null;
+    } catch (sttError: any) {
+      // If STT fails in emulator, log and return null (don't block the request)
+      if (process.env.FUNCTIONS_EMULATOR === "true") {
+        console.warn("STT failed in emulator (expected in local dev):", sttError?.message || String(sttError));
+        return null;
+      }
+      throw sttError;
+    }
+  } catch (error) {
+    console.error("STT error:", error);
+    // Return null to allow fallback to text input
+    return null;
+  }
+}
+
+// Helper: Query nearby drops from Firestore
+async function queryNearbyDrops(
+  latitude: number,
+  longitude: number,
+  radiusKm: number = 5,
+  mood?: string,
+  limit: number = 10
+): Promise<any[]> {
+  try {
+    // Query drops collection
+    let query = db.collection("drops").limit(limit);
+    
+    // Filter by mood if provided
+    if (mood) {
+      query = query.where("mood", "==", mood);
+    }
+    
+    const snapshot = await query.get();
+    const drops: any[] = [];
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const dropLocation = data.location;
+      
+      // Check if location is a GeoPoint (handle both GeoPoint instance and plain object)
+      const isGeoPoint = dropLocation && (
+        dropLocation instanceof admin.firestore.GeoPoint ||
+        (typeof dropLocation === 'object' && 'latitude' in dropLocation && 'longitude' in dropLocation)
+      );
+      
+      if (isGeoPoint) {
+        // Extract latitude and longitude
+        const lat = dropLocation instanceof admin.firestore.GeoPoint 
+          ? dropLocation.latitude 
+          : (dropLocation as any).latitude;
+        const lng = dropLocation instanceof admin.firestore.GeoPoint 
+          ? dropLocation.longitude 
+          : (dropLocation as any).longitude;
+        // Calculate distance (Haversine formula - simplified)
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          lat,
+          lng
+        );
+        
+        if (distance <= radiusKm) {
+          drops.push({
+            id: doc.id,
+            trackName: data.trackName || "",
+            artistName: data.artistName || "",
+            mood: data.mood || "neutral",
+            userText: data.userText || "",
+            coverUrl: data.coverUrl || "",
+            previewUrl: data.previewUrl || "",
+            distance: Math.round(distance * 100) / 100, // Round to 2 decimals
+            likeCount: data.likeCount || 0,
+          });
+        }
+      }
+    });
+    
+    // Sort by distance
+    drops.sort((a, b) => a.distance - b.distance);
+    return drops;
+  } catch (error: any) {
+    console.error("Error querying nearby drops:", error);
+    console.error("Error details:", error?.message || String(error));
+    // Firestore 에러가 발생해도 빈 배열 반환 (에러로 처리하지 않음)
+    return [];
+  }
+}
+
+// Helper: Calculate distance between two coordinates (Haversine)
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Helper: Generate TTS audio URL (internal call to tts function)
+async function generateTtsAudio(text: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const defaultVoiceId = process.env.ELEVENLABS_DEFAULT_VOICE;
+    
+    if (!apiKey || !defaultVoiceId) {
+      console.error("TTS configuration missing");
+      return null;
+    }
+    
+    const elevenLabsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${defaultVoiceId}`;
+    const response = await fetch(elevenLabsUrl, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({ text }),
+    });
+    
+    if (!response.ok) {
+      console.error("TTS generation failed:", response.status);
+      return null;
+    }
+    
+    // For now, return a placeholder URL. In production, you might want to:
+    // 1. Upload to Cloud Storage and return public URL
+    // 2. Return base64 encoded audio
+    // 3. Return a signed URL
+    // For now, we'll return a data URL pattern or handle it in frontend
+    const audioBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(audioBuffer).toString("base64");
+    return `data:audio/mpeg;base64,${base64}`;
+  } catch (error) {
+    console.error("TTS generation error:", error);
+    return null;
+  }
+}
+
+// AI Ask request interface
+interface AiAskRequest {
+  text?: string;
+  audioUrl?: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+/**
+ * POST /ai/ask
+ * Body: { text?: string; audioUrl?: string; location: { latitude, longitude } }
+ * Response: { answerText: string; tracks: any[]; ttsAudioUrl?: string }
+ */
+// CORS 헤더 설정 헬퍼 함수
+const setCorsHeaders = (res: any) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "3600");
+};
+
+export const aiAsk = functions.runWith({
+  timeoutSeconds: 300, // 5 minutes for AI processing
+  memory: '512MB' // More memory for AI operations
+}).https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
+  // Set CORS headers first (so they're sent even if an error occurs)
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  try {
+    let text: string | undefined;
+    let audioUrl: string | undefined;
+    let location: { latitude: number; longitude: number } | undefined;
+
+    // Check if FormData or JSON
+    const contentType = req.headers["content-type"] || "";
+    if (contentType.includes("multipart/form-data")) {
+      // FormData 처리 (busboy 사용)
+      const Busboy = require("busboy");
+      const busboy = Busboy({ headers: req.headers });
+      
+      const fields: any = {};
+      const files: any[] = [];
+      
+      await new Promise<void>((resolve, reject) => {
+        busboy.on("field", (fieldName: string, value: string) => {
+          fields[fieldName] = value;
+        });
+        
+        busboy.on("file", (fieldName: string, file: any, info: any) => {
+          const chunks: Buffer[] = [];
+          file.on("data", (chunk: Buffer) => {
+            chunks.push(chunk);
+          });
+          file.on("end", () => {
+            const buffer = Buffer.concat(chunks);
+            const base64 = buffer.toString("base64");
+            const mimeType = info.mimeType || "audio/webm";
+            files.push({
+              fieldName,
+              data: `data:${mimeType};base64,${base64}`,
+            });
+          });
+        });
+        
+        busboy.on("finish", () => {
+          resolve();
+        });
+        
+        busboy.on("error", (err: Error) => {
+          reject(err);
+        });
+        
+        req.pipe(busboy);
+      });
+      
+      // Extract values from FormData
+      text = fields.text;
+      audioUrl = files[0]?.data;
+      try {
+        location = JSON.parse(fields.location);
+      } catch {
+        location = undefined;
+      }
+    } else {
+      // Process JSON
+      const body = req.body as AiAskRequest;
+      text = body.text;
+      audioUrl = body.audioUrl;
+      location = body.location;
+    }
+
+    const { text: userText, audioUrl: userAudioUrl, location: userLocation } = { text, audioUrl, location };
+
+    // Validate input
+    if (!userText && !userAudioUrl) {
+      res.status(400).json({ error: "Either text or audioUrl is required" });
+      return;
+    }
+
+    if (!userLocation?.latitude || !userLocation?.longitude) {
+      res.status(400).json({ error: "Location (latitude, longitude) is required" });
+      return;
+    }
+
+    // Process audio input if provided (Day 11-12: STT integration)
+    let userQuery = userText;
+    
+    // In emulator, skip Firestore query to avoid production access
+    // and use mock data for local development
+    let nearbyDrops: any[] = [];
+    let transcribedText: string | null = null;
+    
+    if (process.env.FUNCTIONS_EMULATOR === "true") {
+      // Local development: use mock data and skip STT
+      console.log("Running in emulator - using mock data");
+      nearbyDrops = []; // Empty array for local dev
+      transcribedText = userAudioUrl && !userText ? null : null; // Skip STT in emulator
+    } else {
+      // Production: actual Firestore query and STT
+      const results = await Promise.all([
+        queryNearbyDrops(
+          userLocation.latitude,
+          userLocation.longitude,
+          5, // 5km radius
+          undefined, // No mood filter for now
+          20 // Limit to 20 drops
+        ),
+        userAudioUrl && !userText ? transcribeAudio(userAudioUrl) : Promise.resolve(null),
+      ]);
+      nearbyDrops = results[0];
+      transcribedText = results[1];
+    }
+
+    if (!userQuery && userAudioUrl) {
+      if (transcribedText) {
+        userQuery = transcribedText;
+        console.log("STT result:", transcribedText);
+      } else {
+        // In emulator, STT may fail - provide helpful error message
+        if (process.env.FUNCTIONS_EMULATOR === "true") {
+          res.status(400).json({ 
+            error: "Speech recognition failed. Please use text input in local development environment.",
+            details: "STT requires GCP authentication which may not work in emulator"
+          });
+        } else {
+          res.status(400).json({ error: "Failed to transcribe audio. Please try again or use text input." });
+        }
+        return;
+      }
+    }
+
+    if (!userQuery) {
+      res.status(400).json({ error: "Either text or audioUrl with valid transcription is required" });
+      return;
+    }
+
+    // Initialize Gemini model with Function Calling
+    let responseText: string;
+    
+    // Try actual Gemini API (both local and production)
+    try {
+      const model = vertexAI.preview.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: {
+          maxOutputTokens: 1024,
+          temperature: 0.7,
+        },
+        systemInstruction: `You are a warm, emotional DJ for the city. Your role is to help people discover music memories and stories shared by others in their area.
+
+When users ask questions like:
+- "Are there any sad songs here?"
+- "What music is nearby?"
+- "Tell me about songs in this area"
+- "Recommend something based on my mood"
+
+Respond warmly and personally. Share the stories and emotions behind the music. Be conversational, empathetic, and make users feel connected to the music community around them.
+
+Important: Never mention specific coordinates or location numbers in your response. Focus on the emotional connection and music stories instead.
+
+Format your response naturally, mentioning specific songs and artists when relevant. Always respond in English.`,
+      });
+
+      // Prepare user message with context
+      const userMessage = userQuery;
+
+      // Prepare context with nearby drops for Gemini (no coordinates)
+      const dropsContext = nearbyDrops.length > 0
+        ? `\n\nFound ${nearbyDrops.length} music drops nearby:\n${JSON.stringify(nearbyDrops.slice(0, 10), null, 2)}`
+        : `\n\nNo music drops nearby yet. Drop your music memory!`;
+
+      const queryWithContext = `${userMessage}${dropsContext}`;
+
+      // Call Gemini with proper format and timeout (45 seconds to avoid function timeout)
+      const geminiPromise = model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: queryWithContext }],
+          },
+        ],
+      });
+
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Gemini API timeout after 45 seconds")), 45000);
+      });
+
+      const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
+
+      const response = result.response;
+      responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || 
+        "Unable to generate response. Please try again.";
+      
+      console.log("Gemini response:", responseText);
+    } catch (geminiError: any) {
+      // Fallback to Mock response when Gemini API fails
+      console.warn("Gemini API call failed, using Mock response:", geminiError.message);
+      
+      // Generate natural Mock response based on user question
+      const questionLower = userQuery.toLowerCase();
+      let mockResponse = "";
+      
+      if (questionLower.includes("슬프") || questionLower.includes("우울") || questionLower.includes("sad")) {
+        mockResponse = "I sense some sadness. Let me find some emotional music nearby. Sometimes music that shares your sadness can be a great comfort. 🎵";
+      } else if (questionLower.includes("기쁘") || questionLower.includes("행복") || questionLower.includes("happy") || questionLower.includes("joy")) {
+        mockResponse = "I feel your joy! Let me recommend some bright and cheerful music nearby. Share your good feelings with music! ✨";
+      } else if (questionLower.includes("추천") || questionLower.includes("recommend")) {
+        mockResponse = "I'll recommend music based on the memories nearby. Let me find songs that match your emotions! 🎶";
+      } else if (questionLower.includes("뭐") || questionLower.includes("what") || questionLower.includes("어떤")) {
+        mockResponse = "I'm looking at the music drops nearby. Let me find music that matches your emotions! 🎵";
+      } else {
+        mockResponse = "Hello! I'm your emotional DJ. I'm searching for music memories nearby. I'll warmly answer your questions! 🎶";
+      }
+      
+      responseText = mockResponse;
+    }
+
+    // Extract recommended tracks from nearby drops (top 5 by relevance)
+    const recommendedTracks = nearbyDrops.slice(0, 5).map((drop) => ({
+      trackName: drop.trackName,
+      artistName: drop.artistName,
+      mood: drop.mood,
+      coverUrl: drop.coverUrl,
+      previewUrl: drop.previewUrl,
+      userText: drop.userText,
+      distance: drop.distance,
+    }));
+
+    // Generate TTS audio
+    const ttsAudioUrl = await generateTtsAudio(responseText);
+
+    // Return response
+    res.status(200).json({
+      answerText: responseText,
+      tracks: recommendedTracks,
+      ttsAudioUrl: ttsAudioUrl || undefined,
+    });
+  } catch (error: any) {
+    console.error("AI Ask error:", error);
+    console.error("Error stack:", error?.stack);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+    
+    // Set CORS headers even when error occurs
+    setCorsHeaders(res);
+    
+    // Return more detailed error information
+    const errorMessage = error?.message || String(error);
+    const errorCode = error?.code || "UNKNOWN";
+    
+    res.status(500).json({ 
+      error: "Internal AI error", 
+      details: errorMessage,
+      code: errorCode,
+      stack: process.env.NODE_ENV === "development" ? error?.stack : undefined
+    });
+  }
+});
