@@ -367,6 +367,7 @@ function App() {
               fontSize: '14px',
               width: '200px',
               backgroundColor: 'transparent',
+              color: '#333',
             }}
           />
           </div>

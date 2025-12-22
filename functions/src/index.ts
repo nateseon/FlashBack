@@ -43,9 +43,9 @@ interface CreateDropRequest {
 }
 
 // 1. Create drop function (customized for screenshot schema)
-export const createDrop = functions.https.onCall(async (request) => {
+export const createDrop = functions.https.onCall(async (data: CreateDropRequest, context) => {
   // (Optional) Authentication check: Can be commented out during testing if needed
-//   if (!request.auth) {
+//   if (!context.auth) {
 //     throw new functions.https.HttpsError(
 //       "unauthenticated",
 //       "Authentication is required for this feature."
@@ -53,7 +53,6 @@ export const createDrop = functions.https.onCall(async (request) => {
 //   }
 
   // 2. Receive data from frontend (matching schema field names)
-  const data = request.data as CreateDropRequest;
   const { 
     artistName, 
     trackName, 
@@ -105,9 +104,9 @@ export const createDrop = functions.https.onCall(async (request) => {
       // Use FieldValue from @google-cloud/firestore
       timestamp: FieldValue.serverTimestamp(), // Server timestamp
       
-      // (Recommended) It's safer to get author information from request.auth
+      // (Recommended) It's safer to get author information from context.auth
       // Not in the screenshot, but needed later to find 'my posts'
-      uid: request.auth?.uid || "anonymous", 
+      uid: context.auth?.uid || "anonymous", 
     };
 
     // 5. Save to 'drops' collection (Production only)

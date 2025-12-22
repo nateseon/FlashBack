@@ -135,7 +135,8 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
               placeholder="Search for a song or artist 🎵"
               style={{
                 flex: 1, padding: '12px', borderRadius: '8px', 
-                border: '1px solid #ddd', fontSize: '16px'
+                border: '1px solid #ddd', fontSize: '16px',
+                color: '#333', backgroundColor: 'white'
               }}
             />
             <button 
@@ -191,7 +192,8 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
             onChange={(e) => setComment(e.target.value)}
             style={{
               width: '100%', height: '80px', padding: '10px',
-              borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', resize: 'none'
+              borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', resize: 'none',
+              color: '#333', backgroundColor: 'white'
             }}
           />
 
@@ -199,7 +201,7 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
           <select 
             value={mood} 
             onChange={(e) => setMood(e.target.value)}
-            style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ddd' }}
+            style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ddd', color: '#333', backgroundColor: 'white' }}
           >
             <option value="happy">😄 Happy</option>
             <option value="sad">😢 Sad</option>
