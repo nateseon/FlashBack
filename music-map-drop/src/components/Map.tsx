@@ -33,16 +33,19 @@ const MapControls = ({ targetCenter }: { targetCenter?: { lat: number; lng: numb
   return null;
 };
 
-export const MapComponent = ({ drops, center }: { drops: Drop[]; center: { lat: number; lng: number } }) => {
+interface MapComponentProps {
+  drops: Drop[];
+  center: { lat: number; lng: number };
+  searchedLocation?: { lat: number; lng: number; name?: string } | null;
+}
+
+export const MapComponent = ({ drops, center, searchedLocation }: MapComponentProps) => {
   const [mapCenter, setMapCenter] = useState(center);
   
   // Update map center when prop changes (e.g., when searching a location)
   useEffect(() => {
-    console.log('MapComponent: center prop changed to:', center);
     setMapCenter(center);
   }, [center]);
-  
-  console.log('MapComponent render: mapCenter =', mapCenter);
   
   // Show error message if API key is missing
   if (!API_KEY || API_KEY === 'your_api_key_here' || API_KEY === 'VITE_GOOGLE_MAPS_API_KEY') {
@@ -85,6 +88,14 @@ export const MapComponent = ({ drops, center }: { drops: Drop[]; center: { lat: 
               title={drop.title}
             />
           ))}
+          
+          {/* 검색된 위치에 빨간 마커 표시 */}
+          {searchedLocation && (
+            <Marker
+              position={{ lat: searchedLocation.lat, lng: searchedLocation.lng }}
+              title={searchedLocation.name || 'Searched Location'}
+            />
+          )}
         </Map>
       </div>
     </APIProvider>

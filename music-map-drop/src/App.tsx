@@ -9,6 +9,15 @@ import { ToastContainer } from './components/Toast';
 import { useAiConversation } from './hooks/useAiConversation';
 import type { Drop } from './types/drop';
 
+// Google Maps types - extend Window with google namespace
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 const seedDrops: Drop[] = [
   {
     id: 'seoul-1',
@@ -147,8 +156,8 @@ function App() {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<Drop | null>(null);
   const [searchedPlace, setSearchedPlace] = useState<{ lat: number; lng: number; name: string } | null>(null);
-  const placeInputRef = useRef<HTMLInputElement | null>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const autocompleteRef = useRef<any>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'error' | 'success' | 'info' }>>([]);
   const lastQuestionRef = useRef<string>('');
 
@@ -226,7 +235,7 @@ function App() {
       }
 
       try {
-        autocompleteRef.current = new google.maps.places.Autocomplete(input, {
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(input, {
           fields: ['geometry', 'name', 'formatted_address'],
         });
 
@@ -336,7 +345,7 @@ function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       {/* 1. map (background) */}
-      <MapComponent drops={myDrops} center={mapCenter} />
+      <MapComponent drops={myDrops} center={mapCenter} searchedLocation={searchedPlace} />
 
       {/* 2. Top Control Bar - Clean unified design */}
       <div style={{
