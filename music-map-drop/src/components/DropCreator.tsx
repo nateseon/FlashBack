@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { searchMusic } from '../api/itunes';
+import { createDrop as createDropFunction } from '../firebase';
 import type { ItunesSong } from '../types/music';
 import type { Drop } from '../types/drop';
 
@@ -29,14 +30,14 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
     setIsLoading(false);
   };
 
-  // 3. Drop Save Handler (Core Feature! - local state only)
+  // 3. Drop Save Handler (Backend API Integration!)
   const handleSaveDrop = async () => {
     if (!selectedSong) return;
     setIsLoading(true);
 
     // Get current location (Browser built-in feature)
     if (!navigator.geolocation) {
-      alert("Browser does not support geolocation.");
+      alert("Browser does not support location information.");
       setIsLoading(false);
       return;
     }
@@ -46,32 +47,52 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
         try {
           const { latitude, longitude } = position.coords;
 
-          const newDrop: Drop = {
-            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
-            title: selectedSong.trackName,
-            artist: selectedSong.artistName,
+          // Call backend API
+          const result = await createDropFunction({
+            artistName: selectedSong.artistName,
+            trackName: selectedSong.trackName,
             coverUrl: selectedSong.artworkUrl100,
-            previewUrl: selectedSong.previewUrl,
-            text: comment,
+            previewUrl: selectedSong.previewUrl || "",
+            userText: comment,
             mood: mood,
-            lat: latitude,
-            lng: longitude,
-            createdAt: Date.now(),
-          };
+            latitude: latitude,
+            longitude: longitude,
+          });
 
-          // Add to local state via parent handler
-          onAddDrop(newDrop);
+          const response = result.data as { success: boolean; id: string; message: string };
 
-          alert("🎉 Memory dropped locally! (map + list updated)");
-          
-          // Reset (Back to search screen)
-          setSelectedSong(null);
-          setTerm('');
-          setSongs([]);
-          setComment('');
-        } catch (error) {
+          if (response.success) {
+            // Create local drop object for UI
+            const newDrop: Drop = {
+              id: response.id, // Use server-generated ID
+              title: selectedSong.trackName,
+              artist: selectedSong.artistName,
+              coverUrl: selectedSong.artworkUrl100,
+              previewUrl: selectedSong.previewUrl,
+              text: comment,
+              mood: mood,
+              lat: latitude,
+              lng: longitude,
+              createdAt: Date.now(),
+            };
+
+            // Add to local state via parent handler
+            onAddDrop(newDrop);
+
+            alert("🎉 Memory saved successfully!");
+            
+            // Reset (Back to search screen)
+            setSelectedSong(null);
+            setTerm('');
+            setSongs([]);
+            setComment('');
+          } else {
+            throw new Error(response.message || "Save failed");
+          }
+        } catch (error: any) {
           console.error("Save Failed:", error);
-          alert("Failed to save drop. Please try again.");
+          const errorMessage = error?.message || error?.code || "Unknown error";
+          alert(`Save failed: ${errorMessage}`);
         } finally {
           setIsLoading(false);
         }
@@ -81,7 +102,7 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
         if (onGeolocationError) {
           onGeolocationError(error);
         } else {
-          alert("Cannot retrieve location. Please enable GPS!");
+          alert("Unable to get location information. Please enable GPS!");
         }
         setIsLoading(false);
       }
@@ -114,7 +135,8 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
               placeholder="Search for a song or artist 🎵"
               style={{
                 flex: 1, padding: '12px', borderRadius: '8px', 
-                border: '1px solid #ddd', fontSize: '16px'
+                border: '1px solid #ddd', fontSize: '16px',
+                color: '#333', backgroundColor: 'white'
               }}
             />
             <button 
@@ -170,7 +192,8 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
             onChange={(e) => setComment(e.target.value)}
             style={{
               width: '100%', height: '80px', padding: '10px',
-              borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', resize: 'none'
+              borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', resize: 'none',
+              color: '#333', backgroundColor: 'white'
             }}
           />
 
@@ -178,7 +201,7 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
           <select 
             value={mood} 
             onChange={(e) => setMood(e.target.value)}
-            style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ddd' }}
+            style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ddd', color: '#333', backgroundColor: 'white' }}
           >
             <option value="happy">😄 Happy</option>
             <option value="sad">😢 Sad</option>

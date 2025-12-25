@@ -1,0 +1,129 @@
+[debug] [2025-12-25T01:18:36.516Z] ----------------------------------------------------------------------
+[debug] [2025-12-25T01:18:36.519Z] Command:       /Users/T/.nvm/versions/node/v22.14.0/bin/node /Users/T/.nvm/versions/node/v22.14.0/bin/firebase emulators:start --only functions --project flashback-25e2f
+[debug] [2025-12-25T01:18:36.520Z] CLI Version:   15.1.0
+[debug] [2025-12-25T01:18:36.520Z] Platform:      darwin
+[debug] [2025-12-25T01:18:36.520Z] Node Version:  v22.14.0
+[debug] [2025-12-25T01:18:36.521Z] Time:          Wed Dec 24 2025 17:18:36 GMT-0800 (Pacific Standard Time)
+[debug] [2025-12-25T01:18:36.521Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-12-25T01:18:37.988Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-12-25T01:18:37.989Z] > authorizing via signed-in user (rackoon1030@gmail.com)
+[info] i  emulators: Starting emulators: functions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: functions"}}
+[debug] [2025-12-25T01:18:38.451Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-12-25T01:18:38.452Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2025-12-25T01:18:38.456Z] Emulator locator file path: /var/folders/br/835rb_r10f7fm976kgxtrxhw0000gn/T/hub-flashback-25e2f.json
+[debug] [2025-12-25T01:18:38.456Z] [hub] writing locator at /var/folders/br/835rb_r10f7fm976kgxtrxhw0000gn/T/hub-flashback-25e2f.json
+[debug] [2025-12-25T01:18:38.806Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-12-25T01:18:38.806Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-12-25T01:18:38.807Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-12-25T01:18:38.807Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+[warn] ⚠  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: \u001b[1mapphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect\u001b[22m"}}
+[warn] ⚠  functions: Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful! {"metadata":{"emulator":{"name":"functions"},"message":"Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful!"}}
+[debug] [2025-12-25T01:18:47.648Z] Checked if tokens are valid: true, expires at: 1766626691278
+[debug] [2025-12-25T01:18:47.649Z] Checked if tokens are valid: true, expires at: 1766626691278
+[debug] [2025-12-25T01:18:47.649Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/flashback-25e2f/adminSdkConfig [none]
+[debug] [2025-12-25T01:18:47.973Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/flashback-25e2f/adminSdkConfig 200
+[debug] [2025-12-25T01:18:47.974Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/flashback-25e2f/adminSdkConfig {"projectId":"flashback-25e2f","storageBucket":"flashback-25e2f.firebasestorage.app"}
+[info] i  functions: Watching "/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions\" for Cloud Functions..."}}
+[debug] [2025-12-25T01:18:48.003Z] Validating nodejs source
+[warn] ⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[debug] [2025-12-25T01:18:48.565Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "serve:full": "npm run build && firebase emulators:start --only functions,firestore",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "24"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google-cloud/aiplatform": "^6.0.0",
+    "@google-cloud/speech": "^7.2.1",
+    "@google-cloud/vertexai": "^1.10.0",
+    "busboy": "^1.6.0",
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.0"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.4.1",
+    "typescript": "^5.7.3"
+  },
+  "private": true
+}
+[debug] [2025-12-25T01:18:48.565Z] Building nodejs source
+[debug] [2025-12-25T01:18:48.566Z] Failed to find version of module node: reached end of search path /Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules
+[warn] ⚠  functions: Your requested "node" version "24" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-12-25T01:18:48.568Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-12-25T01:18:48.573Z] Found firebase-functions binary at '/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8274
+
+[info] dotenv not available, using system environment variables
+
+[debug] [2025-12-25T01:18:49.522Z] Got response from /__/functions.yaml {"endpoints":{"createDrop":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"createDrop"},"tts":{"platform":"gcfv1","availableMemoryMb":256,"timeoutSeconds":120,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"httpsTrigger":{},"entryPoint":"tts"},"storytelling":{"platform":"gcfv1","availableMemoryMb":256,"timeoutSeconds":120,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"httpsTrigger":{},"entryPoint":"storytelling"},"aiAsk":{"platform":"gcfv1","availableMemoryMb":512,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"httpsTrigger":{},"entryPoint":"aiAsk"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
+[info] ✔  functions: Loaded functions definitions from source: createDrop, tts, storytelling, aiAsk. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: createDrop, tts, storytelling, aiAsk."}}
+[info] ✔  functions[us-central1-createDrop]: http function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/createDrop). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/createDrop)."}}
+[info] ✔  functions[us-central1-tts]: http function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/tts). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/tts)."}}
+[info] ✔  functions[us-central1-storytelling]: http function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/storytelling). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/storytelling)."}}
+[info] ✔  functions[us-central1-aiAsk]: http function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/aiAsk). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/flashback-25e2f/us-central1/aiAsk)."}}
+[debug] [2025-12-25T01:18:53.560Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[info] 
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:4000/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌───────────┬────────────────┬─────────────────────────────────┐
+│ Emulator  │ Host:Port      │ View in Emulator UI             │
+├───────────┼────────────────┼─────────────────────────────────┤
+│ Functions │ 127.0.0.1:5001 │ http://127.0.0.1:4000/functions │
+└───────────┴────────────────┴─────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500
+
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 
+[debug] [2025-12-25T01:19:04.476Z] [work-queue] {"queuedWork":["/flashback-25e2f/us-central1/aiAsk-2025-12-25T01:19:04.476Z"],"queueLength":1,"runningWork":[],"workRunningCount":0}
+[debug] [2025-12-25T01:19:04.477Z] [work-queue] {"queuedWork":[],"queueLength":0,"runningWork":["/flashback-25e2f/us-central1/aiAsk-2025-12-25T01:19:04.476Z"],"workRunningCount":1}
+[debug] [2025-12-25T01:19:04.477Z] Accepted request POST /flashback-25e2f/us-central1/aiAsk --> us-central1-aiAsk
+[debug] [2025-12-25T01:19:04.480Z] [functions] Runtime ready! Sending request! {"metadata":{"emulator":{"name":"functions"},"message":"[functions] Runtime ready! Sending request!"}}
+[debug] [2025-12-25T01:19:04.481Z] [functions] Got req.url=/flashback-25e2f/us-central1/aiAsk, mapping to path=/ {"metadata":{"emulator":{"name":"functions"},"message":"[functions] Got req.url=/flashback-25e2f/us-central1/aiAsk, mapping to path=/"}}
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-12-25T01:19:04.487Z] [worker-pool] addWorker(us-central1-aiAsk) {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] addWorker(us-central1-aiAsk)"}}
+[debug] [2025-12-25T01:19:04.488Z] [worker-pool] Adding worker with key us-central1-aiAsk, total=1 {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] Adding worker with key us-central1-aiAsk, total=1"}}
+[debug] [2025-12-25T01:19:05.321Z] [runtime-status] [44378] Resolved module firebase-admin {"declared":true,"installed":true,"version":"13.6.0","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Resolved module firebase-admin {\"declared\":true,\"installed\":true,\"version\":\"13.6.0\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js\"}"}}
+[debug] [2025-12-25T01:19:05.322Z] [runtime-status] [44378] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.0.1","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.0.1\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js\"}"}}
+[debug] [2025-12-25T01:19:05.322Z] [runtime-status] [44378] Outgoing network have been stubbed. [{"name":"http","status":"mocked"},{"name":"http","status":"mocked"},{"name":"https","status":"mocked"},{"name":"https","status":"mocked"},{"name":"net","status":"mocked"}] {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Outgoing network have been stubbed. [{\"name\":\"http\",\"status\":\"mocked\"},{\"name\":\"http\",\"status\":\"mocked\"},{\"name\":\"https\",\"status\":\"mocked\"},{\"name\":\"https\",\"status\":\"mocked\"},{\"name\":\"net\",\"status\":\"mocked\"}]"}}
+[debug] [2025-12-25T01:19:05.322Z] [runtime-status] [44378] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.0.1","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.0.1\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js\"}"}}
+[debug] [2025-12-25T01:19:05.322Z] [runtime-status] [44378] Detected firebase-functions v7+, skipping legacy stubs. {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Detected firebase-functions v7+, skipping legacy stubs."}}
+[debug] [2025-12-25T01:19:05.322Z] [runtime-status] [44378] Resolved module firebase-admin {"declared":true,"installed":true,"version":"13.6.0","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Resolved module firebase-admin {\"declared\":true,\"installed\":true,\"version\":\"13.6.0\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js\"}"}}
+[debug] [2025-12-25T01:19:05.396Z] [runtime-status] [44378] Resolved module firebase-functions {"declared":true,"installed":true,"version":"7.0.1","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Resolved module firebase-functions {\"declared\":true,\"installed\":true,\"version\":\"7.0.1\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-functions/lib/v2/index.js\"}"}}
+[debug] [2025-12-25T01:19:05.614Z] [runtime-status] [44378] firebase-admin has been stubbed. {"adminResolution":{"declared":true,"installed":true,"version":"13.6.0","resolution":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js"}} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] firebase-admin has been stubbed. {\"adminResolution\":{\"declared\":true,\"installed\":true,\"version\":\"13.6.0\",\"resolution\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions/node_modules/firebase-admin/lib/index.js\"}}"}}
+[info] >  dotenv not available, using system environment variables {"user":"dotenv not available, using system environment variables","metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"\u001b[90m> \u001b[39m dotenv not available, using system environment variables"}}
+[debug] [2025-12-25T01:19:05.990Z] [runtime-status] [44378] initializeApp(DEFAULT) {"storageBucket":"flashback-25e2f.firebasestorage.app","projectId":"flashback-25e2f"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] initializeApp(DEFAULT) {\"storageBucket\":\"flashback-25e2f.firebasestorage.app\",\"projectId\":\"flashback-25e2f\"}"}}
+[warn] ⚠  functions: The Cloud Firestore emulator is not running, so calls to Firestore will affect production. {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"The Cloud Firestore emulator is not running, so calls to Firestore will affect production."}}
+[debug] [2025-12-25T01:19:06.070Z] [runtime-status] [44378] Functions runtime initialized. {"cwd":"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions","node_version":"22.14.0"} {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Functions runtime initialized. {\"cwd\":\"/Users/T/Library/Mobile Documents/com~apple~CloudDocs/Washington/FlashBack/functions\",\"node_version\":\"22.14.0\"}"}}
+[debug] [2025-12-25T01:19:06.070Z] [runtime-status] [44378] Listening to port: /var/folders/br/835rb_r10f7fm976kgxtrxhw0000gn/T/fire_emu_c7a668b6edb63cc4.sock {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[runtime-status] [44378] Listening to port: /var/folders/br/835rb_r10f7fm976kgxtrxhw0000gn/T/fire_emu_c7a668b6edb63cc4.sock"}}
+[debug] [2025-12-25T01:19:06.148Z] [worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: IDLE {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: IDLE"}}
+[debug] [2025-12-25T01:19:06.148Z] [worker-pool] submitRequest(triggerId=us-central1-aiAsk) {"metadata":{"emulator":{"name":"functions"},"message":"[worker-pool] submitRequest(triggerId=us-central1-aiAsk)"}}
+[info] i  functions: Beginning execution of "us-central1-aiAsk" {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Beginning execution of \"us-central1-aiAsk\""}}
+[debug] [2025-12-25T01:19:06.149Z] [worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: BUSY {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: BUSY"}}
+[info] >  Running in emulator - using mock data {"user":"Running in emulator - using mock data","metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"\u001b[90m> \u001b[39m Running in emulator - using mock data"}}
+[warn] ⚠  Google API requested!
+   - URL: "https://oauth2.googleapis.com/token"
+   - Be careful, this may be a production service. {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Google API requested!\n   - URL: \"https://oauth2.googleapis.com/token\"\n   - Be careful, this may be a production service."}}
+[info] >  Gemini response: Hey there! Nothing much, just vibing and waiting for some awesome music memories to pop up around here. It's always exciting to see what songs resonate with people in the city. What about you? Got any tunes on your mind or a story you'd like to share? I'm all ears! 🎶😊 {"user":"Gemini response: Hey there! Nothing much, just vibing and waiting for some awesome music memories to pop up around here. It's always exciting to see what songs resonate with people in the city. What about you? Got any tunes on your mind or a story you'd like to share? I'm all ears! 🎶😊","metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"\u001b[90m> \u001b[39m Gemini response: Hey there! Nothing much, just vibing and waiting for some awesome music memories to pop up around here. It's always exciting to see what songs resonate with people in the city. What about you? Got any tunes on your mind or a story you'd like to share? I'm all ears! 🎶😊"}}
+[info] >   {"user":"","metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"\u001b[90m> \u001b[39m "}}
+[debug] [2025-12-25T01:19:10.359Z] Finishing up request with event=pause {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Finishing up request with event=pause"}}
+[info] i  functions: Finished "us-central1-aiAsk" in 4210.337625ms {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Finished \"us-central1-aiAsk\" in 4210.337625ms"}}
+[debug] [2025-12-25T01:19:10.359Z] [worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: IDLE {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"[worker-us-central1-aiAsk-467ead57-3e9c-419f-b40f-10ae3ff93bc2]: IDLE"}}
+[debug] [2025-12-25T01:19:10.359Z] Finishing up request with event=finish {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Finishing up request with event=finish"}}
+[debug] [2025-12-25T01:19:10.359Z] Finishing up request with event=close {"metadata":{"emulator":{"name":"functions"},"function":{"name":"us-central1-aiAsk"},"extension":{},"message":"Finishing up request with event=close"}}
+[debug] [2025-12-25T01:19:10.359Z] [work-queue] {"queuedWork":[],"queueLength":0,"runningWork":[],"workRunningCount":0}
