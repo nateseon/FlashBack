@@ -301,7 +301,7 @@ export const storytelling = functions.runWith({
       // Production: Try Gemini AI
       try {
         const model = vertexAI.preview.getGenerativeModel({
-          model: "gemini-1.5-flash",
+          model: "gemini-2.0-flash-001",
           generationConfig: {
             maxOutputTokens: 512,
             temperature: 0.8,
@@ -819,7 +819,7 @@ export const aiAsk = functions.runWith({
     // Try actual Gemini API (both local and production)
     try {
       const model = vertexAI.preview.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash-001",
         generationConfig: {
           maxOutputTokens: 1024,
           temperature: 0.7,
