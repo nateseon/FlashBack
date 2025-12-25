@@ -112,16 +112,16 @@ export const DropCreator = ({ onAddDrop, onGeolocationError }: DropCreatorProps)
   return (
     <div style={{
       position: 'absolute',
-      top: '20px',
+      top: '140px',
       left: '50%',
       transform: 'translateX(-50%)',
       width: '90%',
-      maxWidth: '400px',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      padding: '16px',
-      borderRadius: '16px',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      zIndex: 1000
+      maxWidth: '360px',
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      padding: '14px',
+      borderRadius: '20px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+      zIndex: 999
     }}>
       
       {/* CASE 1: No song selected (Search Screen) */}

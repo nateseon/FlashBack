@@ -9,6 +9,15 @@ import { ToastContainer } from './components/Toast';
 import { useAiConversation } from './hooks/useAiConversation';
 import type { Drop } from './types/drop';
 
+// Google Maps types - extend Window with google namespace
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 const seedDrops: Drop[] = [
   {
     id: 'seoul-1',
@@ -146,6 +155,9 @@ function App() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(initialCenter);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<Drop | null>(null);
+  const [searchedPlace, setSearchedPlace] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const autocompleteRef = useRef<any>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'error' | 'success' | 'info' }>>([]);
   const lastQuestionRef = useRef<string>('');
 
@@ -189,6 +201,71 @@ function App() {
         longitude: 126.9780,
       });
     }
+  }, []);
+
+  // Initialize Google Places Autocomplete
+  useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 20;
+
+    const initAutocomplete = () => {
+      const input = document.getElementById('place-search-input') as HTMLInputElement;
+      
+      console.log('Trying to init Places...', {
+        input: !!input,
+        google: !!window.google,
+        maps: !!window.google?.maps,
+        places: !!window.google?.maps?.places,
+        retryCount
+      });
+
+      if (!input || !window.google?.maps?.places) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          setTimeout(initAutocomplete, 500);
+        } else {
+          console.error('Failed to initialize Places Autocomplete after max retries');
+        }
+        return;
+      }
+
+      if (autocompleteRef.current) {
+        console.log('Autocomplete already initialized');
+        return;
+      }
+
+      try {
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(input, {
+          fields: ['geometry', 'name', 'formatted_address'],
+        });
+
+        autocompleteRef.current.addListener('place_changed', () => {
+          const place = autocompleteRef.current?.getPlace();
+          console.log('Place selected:', place);
+          
+          if (place?.geometry?.location) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            const name = place.name || place.formatted_address || 'Selected Location';
+            
+            setSearchedPlace({ lat, lng, name });
+            setMapCenter({ lat, lng });
+            setCurrentLocation({ latitude: lat, longitude: lng });
+            
+            input.value = '';
+            addToast(`📍 Moved to ${name}`, 'success');
+          }
+        });
+
+        console.log('Places Autocomplete initialized successfully!');
+      } catch (error) {
+        console.error('Error initializing Places Autocomplete:', error);
+      }
+    };
+
+    // Start initialization after a delay to ensure Google Maps is loaded
+    const timer = setTimeout(initAutocomplete, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleAddDrop = (drop: Drop) => {
@@ -268,12 +345,128 @@ function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       {/* 1. map (background) */}
-      <MapComponent drops={myDrops} center={mapCenter} />
-      
-      {/* 2. music search (floating above the map) */}
+      <MapComponent drops={myDrops} center={mapCenter} searchedLocation={searchedPlace} />
+
+      {/* 2. Top Control Bar - Clean unified design */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        left: '16px',
+        right: '16px',
+        zIndex: 1001,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+      }}>
+        {/* Row 1: Location Search */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          borderRadius: '28px',
+          padding: '4px 16px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+        }}>
+          <span style={{ marginRight: '8px', fontSize: '16px' }}>📍</span>
+          <input
+            type="text"
+            placeholder="Search location..."
+            id="place-search-input"
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              fontSize: '14px',
+              padding: '10px 0',
+              backgroundColor: 'transparent',
+              color: '#333',
+            }}
+          />
+        </div>
+
+        {/* Row 2: AI Input + Mic */}
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+        }}>
+          {aiConversation.status === 'idle' && (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.98)',
+              borderRadius: '28px',
+              padding: '4px 16px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            }}>
+              <span style={{ marginRight: '8px', fontSize: '16px' }}>🤖</span>
+              <input
+                type="text"
+                placeholder={currentLocation ? "Ask AI about music nearby..." : "Loading..."}
+                disabled={!currentLocation}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && currentLocation && e.currentTarget.value.trim()) {
+                    const text = e.currentTarget.value.trim();
+                    if (lastQuestionRef.current === text && aiConversation.status !== 'idle') {
+                      aiConversation.reset();
+                      lastQuestionRef.current = '';
+                      e.currentTarget.value = '';
+                      return;
+                    }
+                    lastQuestionRef.current = text;
+                    e.currentTarget.value = '';
+                    try {
+                      const response = await aiConversation.askWithText(text, currentLocation);
+                      if (response?.ttsAudioUrl) {
+                        aiConversation.setStatus('playing');
+                        const audio = new Audio(response.ttsAudioUrl);
+                        audio.onended = () => aiConversation.setStatus('idle');
+                        audio.onerror = () => aiConversation.setStatus('idle');
+                        await audio.play();
+                      } else {
+                        aiConversation.setStatus('idle');
+                      }
+                    } catch (error: any) {
+                      console.error('Failed to process AI question:', error);
+                      aiConversation.setStatus('idle');
+                      addToast(error?.message || 'AI error', 'error');
+                    }
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '14px',
+                  padding: '10px 0',
+                  backgroundColor: 'transparent',
+                  color: '#333',
+                }}
+              />
+            </div>
+          )}
+          <MicButton
+            status={aiConversation.status}
+            onStatusChange={(status) => {
+              if (status === 'recording' && aiConversation.status === 'recording') {
+                aiConversation.reset();
+                lastQuestionRef.current = '';
+                return;
+              }
+              aiConversation.setStatus(status);
+            }}
+            onRecordingComplete={handleRecordingComplete}
+            onError={(error) => addToast(error.message, 'error')}
+            disabled={!currentLocation}
+          />
+        </div>
+      </div>
+
+      {/* 3. Music Drop Creator (Bottom left) */}
       <DropCreator onAddDrop={handleAddDrop} />
 
-      {/* 3. AI Answer Sheet */}
+      {/* 4. AI Answer Sheet */}
       <AIAnswerSheet
         status={aiConversation.status}
         answerText={aiConversation.lastAnswer}
@@ -284,113 +477,6 @@ function App() {
         onDismiss={aiConversation.reset}
         autoDismissSeconds={15}
       />
-
-      {/* 4. AI Input (Text input + Mic Button) - Moved to top */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          zIndex: 1001,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          alignItems: 'flex-end',
-        }}
-      >
-        {/* Text input */}
-        {aiConversation.status === 'idle' && (
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              padding: '8px 12px',
-              borderRadius: '24px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            }}
-          >
-            <input
-              type="text"
-              placeholder={currentLocation ? "Ask AI..." : "Loading location..."}
-              disabled={!currentLocation}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter' && currentLocation && e.currentTarget.value.trim()) {
-                  const text = e.currentTarget.value.trim();
-                  
-                  // 같은 질문 연속 클릭 시 상태 초기화
-                  if (lastQuestionRef.current === text && aiConversation.status !== 'idle') {
-                    aiConversation.reset();
-                    lastQuestionRef.current = '';
-                    e.currentTarget.value = '';
-                    return;
-                  }
-                  
-                  lastQuestionRef.current = text;
-                  e.currentTarget.value = '';
-                  
-                  try {
-                    // 백엔드에 전송하고 응답 받기
-                    const response = await aiConversation.askWithText(text, currentLocation);
-                    
-                    // 응답에서 직접 ttsAudioUrl 가져오기
-                    if (response?.ttsAudioUrl) {
-                      aiConversation.setStatus('playing');
-                      const audio = new Audio(response.ttsAudioUrl);
-                      audio.onended = () => {
-                        aiConversation.setStatus('idle');
-                      };
-                      audio.onerror = () => {
-                        aiConversation.setStatus('idle');
-                      };
-                      await audio.play();
-                    } else {
-                      // TTS 오디오가 없으면 상태만 idle로 변경
-                      aiConversation.setStatus('idle');
-                    }
-                  } catch (error: any) {
-                    console.error('Failed to process AI question:', error);
-                    aiConversation.setStatus('idle');
-                    
-                    // 네트워크 에러인 경우
-                    if (error?.message?.includes('Failed to fetch') || error?.message?.includes('Cannot connect')) {
-                      addToast('Network connection failed. Please try again.', 'error');
-                    } else {
-                      addToast(error?.message || 'An error occurred while processing AI question.', 'error');
-                    }
-                  }
-                }
-              }}
-            style={{
-              border: 'none',
-              outline: 'none',
-              fontSize: '14px',
-              width: '200px',
-              backgroundColor: 'transparent',
-              color: '#333',
-            }}
-          />
-          </div>
-        )}
-        
-        <MicButton
-          status={aiConversation.status}
-          onStatusChange={(status) => {
-            // 같은 질문 연속 클릭 시 상태 초기화
-            if (status === 'recording' && aiConversation.status === 'recording') {
-              aiConversation.reset();
-              lastQuestionRef.current = '';
-              return;
-            }
-            aiConversation.setStatus(status);
-          }}
-          onRecordingComplete={handleRecordingComplete}
-          onError={(error) => {
-            addToast(error.message, 'error');
-          }}
-          disabled={!currentLocation}
-        />
-      </div>
 
       {/* 5. my drops list (bottom sheet style) */}
       <MyDropsList drops={myDrops} onSelect={handleSelectDrop} onMapCenterChange={handleMapCenterChange} />
