@@ -24,7 +24,9 @@
       "port": 8080
     },
     "ui": {
-      "enabled": false
-    }
+      "enabled": false,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }
