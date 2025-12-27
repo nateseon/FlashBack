@@ -764,31 +764,28 @@ export const aiAsk = functions.runWith({
     // Process audio input if provided (Day 11-12: STT integration)
     let userQuery = userText;
     
-    // In emulator, skip Firestore query to avoid production access
-    // and use mock data for local development
+    // Query Firestore for nearby drops (works with both emulator and production)
     let nearbyDrops: any[] = [];
     let transcribedText: string | null = null;
     
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-      // Local development: use mock data and skip STT
-      console.log("Running in emulator - using mock data");
-      nearbyDrops = []; // Empty array for local dev
-      transcribedText = userAudioUrl && !userText ? null : null; // Skip STT in emulator
-    } else {
-      // Production: actual Firestore query and STT
-      const results = await Promise.all([
-        queryNearbyDrops(
-          userLocation.latitude,
-          userLocation.longitude,
-          5, // 5km radius
-          undefined, // No mood filter for now
-          20 // Limit to 20 drops
-        ),
-        userAudioUrl && !userText ? transcribeAudio(userAudioUrl) : Promise.resolve(null),
-      ]);
-      nearbyDrops = results[0];
-      transcribedText = results[1];
-    }
+    // Always query Firestore (works with emulator if Firestore emulator is running)
+    const results = await Promise.all([
+      queryNearbyDrops(
+        userLocation.latitude,
+        userLocation.longitude,
+        5, // 5km radius
+        undefined, // No mood filter for now
+        20 // Limit to 20 drops
+      ),
+      // Skip STT in emulator (requires GCP auth)
+      process.env.FUNCTIONS_EMULATOR === "true" 
+        ? Promise.resolve(null)
+        : (userAudioUrl && !userText ? transcribeAudio(userAudioUrl) : Promise.resolve(null)),
+    ]);
+    nearbyDrops = results[0];
+    transcribedText = results[1];
+    
+    console.log(`Found ${nearbyDrops.length} nearby drops`);
 
     if (!userQuery && userAudioUrl) {
       if (transcribedText) {
