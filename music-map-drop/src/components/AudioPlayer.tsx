@@ -54,7 +54,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     if (autoPlay) {
       audio.play().catch((err) => {
-        console.error('?먮룞 ?ъ깮 ?ㅽ뙣:', err);
+        console.error('자동 재생 실패:', err);
         setIsLoading(false);
       });
       setIsPlaying(true);
@@ -80,7 +80,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setIsPlaying(false);
     } else {
       audioRef.current.play().catch((err) => {
-        console.error('?ъ깮 ?ㅽ뙣:', err);
+        console.error('재생 실패:', err);
         setIsPlaying(false);
       });
       setIsPlaying(true);
@@ -120,7 +120,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         ...style,
       }}
     >
-      {/* ?ъ깮/?쇱떆?뺤? 踰꾪듉怨?吏꾪뻾諛?*/}
+      {/* 재생/일시정지 버튼과 진행바 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button
           onClick={togglePlay}
@@ -141,10 +141,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             flexShrink: 0,
           }}
         >
-          {isLoading ? '?? : isPlaying ? '?몌툘' : '?띰툘'}
+          {isLoading ? '⏳' : isPlaying ? '⏸️' : '▶️'}
         </button>
 
-        {/* 吏꾪뻾諛?*/}
+        {/* 진행바 */}
         <div style={{ flex: 1, position: 'relative' }}>
           <div
             onClick={handleProgressClick}
@@ -169,7 +169,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
 
-        {/* ?쒓컙 ?쒖떆 */}
+        {/* 시간 표시 */}
         <div
           style={{
             fontSize: '12px',

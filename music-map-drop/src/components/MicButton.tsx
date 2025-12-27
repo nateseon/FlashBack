@@ -51,7 +51,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
       console.error('Failed to start recording:', error);
       onStatusChange('idle');
       
-      // 留덉씠??沅뚰븳 嫄곕? ???먮윭 肄쒕갚 ?몄텧
+      // 마이크 권한 거부 시 에러 콜백 호출
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         onError?.(new Error('Microphone permission is required. Please allow microphone access in your browser settings.'));
       } else {
@@ -114,7 +114,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
         }
       }}
     >
-      {status === 'thinking' ? '?쨺' : isRecording ? '?렎' : '?럺截?}
+      {status === 'thinking' ? '🤔' : isRecording ? '🎤' : '🎙️'}
       <style>{`
         @keyframes pulse {
           0% {

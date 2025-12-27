@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAezUJJ8EITvFuu_sYTA8KtOqEYtXNZqeg",
@@ -19,7 +19,20 @@ export const functions = getFunctions(app, "us-central1");
 // Connect to emulator in development
 if (import.meta.env.DEV) {
   connectFunctionsEmulator(functions, "localhost", 5002);
+  
+  // Connect to Firestore emulator (if running)
+  try {
+    const db = getFirestore(app);
+    connectFirestoreEmulator(db, "localhost", 8080);
+    console.log("Connected to Firestore emulator");
+  } catch (error) {
+    // Emulator already connected, ignore
+    console.log("Firestore emulator connection:", error);
+  }
 }
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Export callable functions
+export const createDrop = httpsCallable(functions, "createDrop");

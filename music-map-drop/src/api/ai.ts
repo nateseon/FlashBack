@@ -1,6 +1,6 @@
 import type { AiAskRequest, AiAskResponse } from '../types/ai';
 
-// 諛깆뿏??API URL (媛쒕컻 ?섍꼍?먯꽌???먮??덉씠?? ?꾨줈?뺤뀡?먯꽌???ㅼ젣 URL)
+// 백엔드 API URL (개발 환경에서는 에뮬레이터, 프로덕션에서는 실제 URL)
 const getApiUrl = () => {
   if (import.meta.env.DEV) {
     // Firebase Functions Emulator
@@ -15,29 +15,31 @@ export const askAi = async (request: AiAskRequest): Promise<AiAskResponse> => {
   const url = getApiUrl();
   
   try {
-    // audioUrl???덈뒗 寃쎌슦 FormData濡??꾩넚, ?꾨땲硫?JSON?쇰줈 ?꾩넚
+    // audioUrl이 있는 경우 FormData로 전송, 아니면 JSON으로 전송
     if (request.audioUrl) {
       let blob: Blob;
       
-      // Blob URL??寃쎌슦 ?ㅼ젣 Blob?쇰줈 蹂??      if (request.audioUrl.startsWith('blob:')) {
+      // Blob URL인 경우 실제 Blob으로 변환
+      if (request.audioUrl.startsWith('blob:')) {
         const blobResponse = await fetch(request.audioUrl);
         if (!blobResponse.ok) {
           throw new Error(`Blob fetch failed: ${blobResponse.status}`);
         }
         blob = await blobResponse.blob();
       } else if (request.audioUrl.startsWith('data:')) {
-        // Data URL??寃쎌슦 Blob?쇰줈 蹂??        const response = await fetch(request.audioUrl);
+        // Data URL인 경우 Blob으로 변환
+        const response = await fetch(request.audioUrl);
         blob = await response.blob();
       } else {
         throw new Error('Unsupported audio URL format');
       }
       
-      // Blob ?ш린 ?뺤씤 (10MB ?쒗븳)
+      // Blob 크기 확인 (10MB 제한)
       if (blob.size > 10 * 1024 * 1024) {
         throw new Error('Audio file is too large (max 10MB)');
       }
       
-      // FormData濡??꾩넚
+      // FormData로 전송
       const formData = new FormData();
       formData.append('audio', blob, 'recording.webm');
       formData.append('location', JSON.stringify(request.location));
@@ -70,7 +72,7 @@ export const askAi = async (request: AiAskRequest): Promise<AiAskResponse> => {
       const data: AiAskResponse = await response.json();
       return data;
     } else {
-      // ?띿뒪?몃쭔 ?덈뒗 寃쎌슦 JSON?쇰줈 ?꾩넚
+      // 텍스트만 있는 경우 JSON으로 전송
       console.log('AI API call (JSON):', url, {
         hasText: !!request.text,
         hasAudio: false,
@@ -106,7 +108,7 @@ export const askAi = async (request: AiAskRequest): Promise<AiAskResponse> => {
       name: error?.name,
     });
     
-    // ?ㅽ듃?뚰겕 ?먮윭??寃쎌슦 ??移쒗솕?곸씤 硫붿떆吏
+    // 네트워크 에러인 경우 더 친화적인 메시지
     if (error?.message?.includes('Failed to fetch') || error?.name === 'TypeError') {
       throw new Error('Cannot connect to backend server. Please check if the backend is running.');
     }

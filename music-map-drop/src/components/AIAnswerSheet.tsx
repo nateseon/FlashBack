@@ -47,17 +47,18 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
     }
   }, [status]);
 
-  // ?먮윭媛 蹂寃쎈릺硫??쒖떆?섍퀬, 10珥????먮룞?쇰줈 ?щ씪吏寃???  useEffect(() => {
+  // 에러가 변경되면 표시하고, 10초 후 자동으로 사라지게 함
+  useEffect(() => {
     if (error) {
       setDisplayError(error);
-      // 5珥????꾩쟾???쒓굅 (9.5珥????좊땲硫붿씠???쒖옉, 0.5珥??좊땲硫붿씠??
+      // 5초 후 완전히 제거 (9.5초 후 애니메이션 시작, 0.5초 애니메이션)
       const timer = setTimeout(() => {
         setDisplayError(null);
       }, 5000);
 
       return () => clearTimeout(timer);
     } else {
-      // ?먮윭媛 ?놁쑝硫?利됱떆 ?쒓굅
+      // 에러가 없으면 즉시 제거
       setDisplayError(null);
     }
   }, [error]);
@@ -110,10 +111,10 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
         overflowY: 'auto',
       }}
     >
-      {/* 濡쒕뵫 ?ㅼ펷?덊넠 */}
+      {/* 로딩 스켈레톤 */}
       {status === 'thinking' && (
         <div style={{ padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>?쨺</div>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🤔</div>
           <div style={{ color: '#666', fontSize: '14px' }}>AI is thinking...</div>
           <div
             style={{
@@ -145,7 +146,7 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
         </div>
       )}
 
-      {/* ?먮윭 硫붿떆吏 (10珥????먮룞?쇰줈 ?щ씪吏? */}
+      {/* 에러 메시지 (10초 후 자동으로 사라짐) */}
       {displayError && (
         <div
           style={{
@@ -158,11 +159,11 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
             transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
           }}
           onAnimationEnd={() => {
-            // ?좊땲硫붿씠?섏씠 ?앸굹硫?諛뺤뒪 ?꾩쟾???쒓굅
+            // 애니메이션이 끝나면 박스 완전히 제거
             setDisplayError(null);
           }}
         >
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>?좑툘 Error</div>
+          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>⚠️ Error</div>
           <div style={{ fontSize: '14px' }}>{displayError}</div>
           <style>{`
             @keyframes fadeOut {
@@ -179,7 +180,7 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
         </div>
       )}
 
-      {/* AI ?묐떟 ?띿뒪??*/}
+      {/* AI 응답 텍스트 */}
       {answerText && status !== 'thinking' && (
         <div style={{ marginBottom: '20px' }}>
           <div
@@ -194,13 +195,14 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
             {answerText}
           </div>
           
-          {/* TTS ?ㅻ뵒???뚮젅?댁뼱 */}
+          {/* TTS 오디오 플레이어 */}
           {ttsAudioUrl && (
             <AudioPlayer
               audioUrl={ttsAudioUrl}
               autoPlay={status === 'playing'}
               onEnded={() => {
-                // ?곹깭??遺紐⑥뿉??愿由?              }}
+                // 상태는 부모에서 관리
+              }}
               onError={() => {
                 console.error('TTS audio playback failed');
               }}
@@ -209,7 +211,7 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
         </div>
       )}
 
-      {/* 異붿쿇 ?몃옓 由ъ뒪??*/}
+      {/* 추천 트랙 리스트 */}
       {tracks.length > 0 && status !== 'thinking' && (
         <div>
           <div
@@ -308,7 +310,7 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
                       fontSize: '20px',
                     }}
                   >
-                    ?띰툘
+                    ▶️
                   </div>
                 )}
               </div>
@@ -317,7 +319,7 @@ export const AIAnswerSheet: React.FC<AIAnswerSheetProps> = ({
         </div>
       )}
 
-      {/* ?④꺼吏??ㅻ뵒???섎━癒쇳듃 */}
+      {/* 숨겨진 오디오 엘리먼트 */}
       <audio ref={audioRef} />
     </div>
   );
