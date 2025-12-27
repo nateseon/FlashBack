@@ -18,7 +18,7 @@ export const functions = getFunctions(app, "us-central1");
 
 // Connect to emulator in development
 if (import.meta.env.DEV) {
-  connectFunctionsEmulator(functions, "localhost", 5001);
+  connectFunctionsEmulator(functions, "localhost", 5002);
 }
 
 export const auth = getAuth(app);

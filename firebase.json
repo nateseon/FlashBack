@@ -18,14 +18,13 @@
   ],
   "emulators": {
     "functions": {
-      "port": 5001
+      "port": 5002
     },
     "firestore": {
       "port": 8080
     },
     "ui": {
-      "enabled": true,
-      "port": 4000
+      "enabled": false
     }
   }
 }
