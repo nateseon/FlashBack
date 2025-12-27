@@ -106,7 +106,7 @@ const MyDropsList = ({ drops, onSelect, onMapCenterChange }: { drops: Drop[]; on
               {drop.title}
             </div>
             <div style={{ fontSize: 12, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
-              {drop.artist || 'Unknown Artist'} 쨌 {drop.mood || 'mood'}
+              {drop.artist || 'Unknown Artist'} · {drop.mood || 'mood'}
             </div>
             {drop.text && (
               <div style={{ fontSize: 11, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -161,20 +161,22 @@ function App() {
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'error' | 'success' | 'info' }>>([]);
   const lastQuestionRef = useRef<string>('');
 
-  // AI ?????  const aiConversation = useAiConversation();
+  // AI 대화 훅
+  const aiConversation = useAiConversation();
 
-  // Toast 異붽? ?⑥닔
+  // Toast 추가 함수
   const addToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, message, type }]);
   };
 
-  // Toast ?쒓굅 ?⑥닔
+  // Toast 제거 함수
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
-  // ?꾩옱 ?꾩튂 媛?몄삤湲?  useEffect(() => {
+  // 현재 위치 가져오기
+  useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -185,7 +187,7 @@ function App() {
         },
         (error) => {
           console.error('Failed to get location:', error);
-          // 湲곕낯媛믪쑝濡??쒖슱 ?ъ슜
+          // 기본값으로 서울 사용
           setCurrentLocation({
             latitude: 37.5665,
             longitude: 126.9780,
@@ -193,7 +195,7 @@ function App() {
         }
       );
     } else {
-      // 湲곕낯媛믪쑝濡??쒖슱 ?ъ슜
+      // 기본값으로 서울 사용
       setCurrentLocation({
         latitude: 37.5665,
         longitude: 126.9780,
@@ -251,7 +253,7 @@ function App() {
             setCurrentLocation({ latitude: lat, longitude: lng });
             
             input.value = '';
-            addToast(`?뱧 Moved to ${name}`, 'success');
+            addToast(`📍 Moved to ${name}`, 'success');
           }
         });
 
@@ -272,14 +274,15 @@ function App() {
   };
 
   const handleSelectDrop = (drop: Drop) => {
-    setSelectedDrop(drop); // ?곸꽭 紐⑤떖 ?쒖떆
+    setSelectedDrop(drop); // 상세 모달 표시
   };
 
   const handleMapCenterChange = (drop: Drop) => {
     setMapCenter({ lat: drop.lat, lng: drop.lng });
   };
 
-  // 留덉씠???뱀쓬 ?꾨즺 ?몃뱾??  const handleRecordingComplete = async (audioBlob: Blob) => {
+  // 마이크 녹음 완료 핸들러
+  const handleRecordingComplete = async (audioBlob: Blob) => {
     if (!currentLocation) {
       addToast('Unable to get location information.', 'error');
       aiConversation.setStatus('idle');
@@ -287,12 +290,14 @@ function App() {
     }
 
     try {
-      // Blob??URL濡?蹂??      const audioUrl = URL.createObjectURL(audioBlob);
+      // Blob을 URL로 변환
+      const audioUrl = URL.createObjectURL(audioBlob);
       
-      // 諛깆뿏?쒖뿉 ?꾩넚?섍퀬 ?묐떟 諛쏄린
+      // 백엔드에 전송하고 응답 받기
       const response = await aiConversation.askWithAudio(audioUrl, currentLocation);
       
-      // ?묐떟?먯꽌 吏곸젒 ttsAudioUrl 媛?몄삤湲?      if (response?.ttsAudioUrl) {
+      // 응답에서 직접 ttsAudioUrl 가져오기
+      if (response?.ttsAudioUrl) {
         aiConversation.setStatus('playing');
         const audio = new Audio(response.ttsAudioUrl);
         audio.onended = () => {
@@ -303,17 +308,18 @@ function App() {
         };
         await audio.play();
       } else {
-        // TTS ?ㅻ뵒?ㅺ? ?놁쑝硫??곹깭留?idle濡?蹂寃?        aiConversation.setStatus('idle');
+        // TTS 오디오가 없으면 상태만 idle로 변경
+        aiConversation.setStatus('idle');
       }
       
-      // ?꾩떆 URL ?뺣━
+      // 임시 URL 정리
       URL.revokeObjectURL(audioUrl);
     } catch (error: any) {
-      console.error('AI 吏덈Ц 泥섎━ ?ㅽ뙣:', error);
+      console.error('AI 질문 처리 실패:', error);
       aiConversation.setStatus('idle');
       
-      // ?ㅽ듃?뚰겕 ?먮윭??寃쎌슦
-      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('?곌껐?????놁뒿?덈떎') || error?.message?.includes('cannot connect')) {
+      // 네트워크 에러인 경우
+      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('연결할 수 없습니다') || error?.message?.includes('cannot connect')) {
         addToast('Network connection failed. Please try again.', 'error');
       } else {
         addToast(error?.message || 'An error occurred while processing AI question.', 'error');
@@ -321,7 +327,8 @@ function App() {
     }
   };
 
-  // TTS ?ㅻ뵒???ъ깮 ?몃뱾??  const handlePlayTtsAudio = (audioUrl: string) => {
+  // TTS 오디오 재생 핸들러
+  const handlePlayTtsAudio = (audioUrl: string) => {
     const audio = new Audio(audioUrl);
     audio.onended = () => {
       aiConversation.setStatus('idle');
@@ -330,7 +337,7 @@ function App() {
       aiConversation.setStatus('idle');
     };
     audio.play().catch((err) => {
-      console.error('TTS ?ㅻ뵒???ъ깮 ?ㅽ뙣:', err);
+      console.error('TTS 오디오 재생 실패:', err);
       aiConversation.setStatus('idle');
     });
   };
@@ -360,7 +367,7 @@ function App() {
           padding: '4px 16px',
           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
         }}>
-          <span style={{ marginRight: '8px', fontSize: '16px' }}>?뱧</span>
+          <span style={{ marginRight: '8px', fontSize: '16px' }}>📍</span>
           <input
             type="text"
             placeholder="Search location..."
@@ -393,7 +400,7 @@ function App() {
               padding: '4px 16px',
               boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
             }}>
-              <span style={{ marginRight: '8px', fontSize: '16px' }}>?쨼</span>
+              <span style={{ marginRight: '8px', fontSize: '16px' }}>🤖</span>
               <input
                 type="text"
                 placeholder={currentLocation ? "Ask AI about music nearby..." : "Loading..."}
