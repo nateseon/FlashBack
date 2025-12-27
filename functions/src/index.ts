@@ -816,15 +816,34 @@ export const aiAsk = functions.runWith({
     // Initialize Gemini model with Function Calling
     let responseText: string;
     
-    // Try actual Gemini API (both local and production)
-    try {
-      const model = vertexAI.preview.getGenerativeModel({
-        model: "gemini-2.0-flash-001",
-        generationConfig: {
-          maxOutputTokens: 1024,
-          temperature: 0.7,
-        },
-        systemInstruction: `You are a warm, emotional DJ for the city called FlashBack. Your role is to help people discover music memories and stories shared by others in their area.
+    // In emulator, use mock response directly (Vertex AI may not work without proper GCP auth)
+    if (process.env.FUNCTIONS_EMULATOR === "true") {
+      console.log("Running in emulator - using mock response");
+      
+      // Generate natural Mock response based on user question
+      const questionLower = userQuery.toLowerCase();
+      
+      if (questionLower.includes("슬프") || questionLower.includes("우울") || questionLower.includes("sad")) {
+        responseText = "I sense some sadness. Let me find some emotional music nearby. Sometimes music that shares your sadness can be a great comfort. 🎵";
+      } else if (questionLower.includes("기쁘") || questionLower.includes("행복") || questionLower.includes("happy") || questionLower.includes("joy")) {
+        responseText = "I feel your joy! Let me recommend some bright and cheerful music nearby. Share your good feelings with music! ✨";
+      } else if (questionLower.includes("추천") || questionLower.includes("recommend")) {
+        responseText = "I'll recommend music based on the memories nearby. Let me find songs that match your emotions! 🎶";
+      } else if (questionLower.includes("뭐") || questionLower.includes("what") || questionLower.includes("어떤") || questionLower.includes("nearby")) {
+        responseText = "I'm looking at the music drops nearby. Let me find music that matches your emotions! 🎵";
+      } else {
+        responseText = "Hello! I'm your emotional DJ. I'm searching for music memories nearby. I'll warmly answer your questions! 🎶";
+      }
+    } else {
+      // Production: Try actual Gemini API
+      try {
+        const model = vertexAI.preview.getGenerativeModel({
+          model: "gemini-2.0-flash-001",
+          generationConfig: {
+            maxOutputTokens: 1024,
+            temperature: 0.7,
+          },
+          systemInstruction: `You are a warm, emotional DJ for the city called FlashBack. Your role is to help people discover music memories and stories shared by others in their area.
 
 You can handle queries like:
 - "Are there any sad songs here?" - Find emotional/sad music nearby
@@ -843,61 +862,59 @@ IMPORTANT GUIDELINES:
 6. Always respond in English with a friendly, DJ-like personality.
 
 Format your response naturally, mentioning specific songs, artists, and the feelings/stories behind them.`,
-      });
+        });
 
-      // Prepare user message with context
-      const userMessage = userQuery;
+        // Prepare user message with context
+        const userMessage = userQuery;
 
-      // Prepare context with nearby drops for Gemini (no coordinates)
-      const dropsContext = nearbyDrops.length > 0
-        ? `\n\nFound ${nearbyDrops.length} music drops nearby:\n${JSON.stringify(nearbyDrops.slice(0, 10), null, 2)}`
-        : `\n\nNo music drops nearby yet. Drop your music memory!`;
+        // Prepare context with nearby drops for Gemini (no coordinates)
+        const dropsContext = nearbyDrops.length > 0
+          ? `\n\nFound ${nearbyDrops.length} music drops nearby:\n${JSON.stringify(nearbyDrops.slice(0, 10), null, 2)}`
+          : `\n\nNo music drops nearby yet. Drop your music memory!`;
 
-      const queryWithContext = `${userMessage}${dropsContext}`;
+        const queryWithContext = `${userMessage}${dropsContext}`;
 
-      // Call Gemini with proper format and timeout (45 seconds to avoid function timeout)
-      const geminiPromise = model.generateContent({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: queryWithContext }],
-          },
-        ],
-      });
+        // Call Gemini with proper format and timeout (45 seconds to avoid function timeout)
+        const geminiPromise = model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: queryWithContext }],
+            },
+          ],
+        });
 
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Gemini API timeout after 45 seconds")), 45000);
-      });
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Gemini API timeout after 45 seconds")), 45000);
+        });
 
-      const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
+        const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
 
-      const response = result.response;
-      responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || 
-        "Unable to generate response. Please try again.";
-      
-      console.log("Gemini response:", responseText);
-    } catch (geminiError: any) {
-      // Fallback to Mock response when Gemini API fails
-      console.warn("Gemini API call failed, using Mock response:", geminiError.message);
-      
-      // Generate natural Mock response based on user question
-      const questionLower = userQuery.toLowerCase();
-      let mockResponse = "";
-      
-      if (questionLower.includes("슬프") || questionLower.includes("우울") || questionLower.includes("sad")) {
-        mockResponse = "I sense some sadness. Let me find some emotional music nearby. Sometimes music that shares your sadness can be a great comfort. 🎵";
-      } else if (questionLower.includes("기쁘") || questionLower.includes("행복") || questionLower.includes("happy") || questionLower.includes("joy")) {
-        mockResponse = "I feel your joy! Let me recommend some bright and cheerful music nearby. Share your good feelings with music! ✨";
-      } else if (questionLower.includes("추천") || questionLower.includes("recommend")) {
-        mockResponse = "I'll recommend music based on the memories nearby. Let me find songs that match your emotions! 🎶";
-      } else if (questionLower.includes("뭐") || questionLower.includes("what") || questionLower.includes("어떤")) {
-        mockResponse = "I'm looking at the music drops nearby. Let me find music that matches your emotions! 🎵";
-      } else {
-        mockResponse = "Hello! I'm your emotional DJ. I'm searching for music memories nearby. I'll warmly answer your questions! 🎶";
+        const response = result.response;
+        responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || 
+          "Unable to generate response. Please try again.";
+        
+        console.log("Gemini response:", responseText);
+      } catch (geminiError: any) {
+        // Fallback to Mock response when Gemini API fails
+        console.warn("Gemini API call failed, using Mock response:", geminiError.message);
+        
+        // Generate natural Mock response based on user question
+        const questionLower = userQuery.toLowerCase();
+        
+        if (questionLower.includes("슬프") || questionLower.includes("우울") || questionLower.includes("sad")) {
+          responseText = "I sense some sadness. Let me find some emotional music nearby. Sometimes music that shares your sadness can be a great comfort. 🎵";
+        } else if (questionLower.includes("기쁘") || questionLower.includes("행복") || questionLower.includes("happy") || questionLower.includes("joy")) {
+          responseText = "I feel your joy! Let me recommend some bright and cheerful music nearby. Share your good feelings with music! ✨";
+        } else if (questionLower.includes("추천") || questionLower.includes("recommend")) {
+          responseText = "I'll recommend music based on the memories nearby. Let me find songs that match your emotions! 🎶";
+        } else if (questionLower.includes("뭐") || questionLower.includes("what") || questionLower.includes("어떤")) {
+          responseText = "I'm looking at the music drops nearby. Let me find music that matches your emotions! 🎵";
+        } else {
+          responseText = "Hello! I'm your emotional DJ. I'm searching for music memories nearby. I'll warmly answer your questions! 🎶";
+        }
       }
-      
-      responseText = mockResponse;
     }
 
     // Extract recommended tracks from nearby drops (top 5 by relevance)
@@ -911,8 +928,10 @@ Format your response naturally, mentioning specific songs, artists, and the feel
       distance: drop.distance,
     }));
 
-    // Generate TTS audio
-    const ttsAudioUrl = await generateTtsAudio(responseText);
+    // Generate TTS audio (skip in emulator to avoid API key issues)
+    const ttsAudioUrl = process.env.FUNCTIONS_EMULATOR === "true" 
+      ? null 
+      : await generateTtsAudio(responseText);
 
     // Return response
     res.status(200).json({
